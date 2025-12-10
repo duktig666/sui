@@ -1,0 +1,11 @@
+[package]
+name = "dag-visualizer"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+consensus-study = { path = "../consensus-poc/consensus-study" }
+clap = { workspace = true, features = ["derive"] }
+
+[lints]
+workspace = true

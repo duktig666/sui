@@ -1,0 +1,89 @@
+digraph MysticetiDAG {
+  rankdir=BT;
+  node [shape=box, style=filled];
+  
+  "R2_A0" [label="R2 A0", fillcolor="#FFE6E6", shape=box, style="filled"];
+  "R0_A2" [label="R0 A2\n[LEADER]", fillcolor="#FFE6E6", shape=diamond, style="filled,bold"];
+  "R1_A0" [label="R1 A0", fillcolor="#FFE6E6", shape=box, style="filled"];
+  "R2_A1" [label="R2 A1", fillcolor="#FFE6E6", shape=ellipse, style="filled"];
+  "R3_A0" [label="R3 A0\n[LEADER]", fillcolor="#E6F3FF", shape=box, style="filled,bold"];
+  "R1_A1" [label="R1 A1", fillcolor="#FFE6E6", shape=ellipse, style="filled"];
+  "R3_A3" [label="R3 A3\n[LEADER]", fillcolor="#E6F3FF", shape=hexagon, style="filled,bold"];
+  "R1_A3" [label="R1 A3", fillcolor="#FFE6E6", shape=hexagon, style="filled"];
+  "R2_A3" [label="R2 A3", fillcolor="#FFE6E6", shape=hexagon, style="filled"];
+  "R0_A3" [label="R0 A3\n[LEADER]", fillcolor="#FFE6E6", shape=hexagon, style="filled,bold"];
+  "R0_A0" [label="R0 A0\n[LEADER]", fillcolor="#FFE6E6", shape=box, style="filled,bold"];
+  "R0_A1" [label="R0 A1\n[LEADER]", fillcolor="#FFE6E6", shape=ellipse, style="filled,bold"];
+  "R3_A2" [label="R3 A2\n[LEADER]", fillcolor="#E6F3FF", shape=diamond, style="filled,bold"];
+  "R3_A1" [label="R3 A1\n[LEADER]", fillcolor="#E6F3FF", shape=ellipse, style="filled,bold"];
+  "R1_A2" [label="R1 A2", fillcolor="#FFE6E6", shape=diamond, style="filled"];
+  "R2_A2" [label="R2 A2", fillcolor="#FFE6E6", shape=diamond, style="filled"];
+
+  "R2_A0" -> "R1_A0" [style=solid];
+  "R2_A0" -> "R1_A1" [style=solid];
+  "R2_A0" -> "R1_A2" [style=solid];
+  "R2_A0" -> "R1_A3" [style=solid];
+  "R1_A0" -> "R0_A0" [style=solid];
+  "R1_A0" -> "R0_A1" [style=solid];
+  "R1_A0" -> "R0_A2" [style=solid];
+  "R1_A0" -> "R0_A3" [style=solid];
+  "R2_A1" -> "R1_A0" [style=solid];
+  "R2_A1" -> "R1_A1" [style=solid];
+  "R2_A1" -> "R1_A2" [style=solid];
+  "R2_A1" -> "R1_A3" [style=solid];
+  "R3_A0" -> "R2_A0" [style=solid];
+  "R3_A0" -> "R2_A1" [style=solid];
+  "R3_A0" -> "R2_A2" [style=solid];
+  "R3_A0" -> "R2_A3" [style=solid];
+  "R1_A1" -> "R0_A0" [style=solid];
+  "R1_A1" -> "R0_A1" [style=solid];
+  "R1_A1" -> "R0_A2" [style=solid];
+  "R1_A1" -> "R0_A3" [style=solid];
+  "R3_A3" -> "R2_A0" [style=solid];
+  "R3_A3" -> "R2_A1" [style=solid];
+  "R3_A3" -> "R2_A2" [style=solid];
+  "R3_A3" -> "R2_A3" [style=solid];
+  "R1_A3" -> "R0_A0" [style=solid];
+  "R1_A3" -> "R0_A1" [style=solid];
+  "R1_A3" -> "R0_A2" [style=solid];
+  "R1_A3" -> "R0_A3" [style=solid];
+  "R2_A3" -> "R1_A0" [style=solid];
+  "R2_A3" -> "R1_A1" [style=solid];
+  "R2_A3" -> "R1_A2" [style=solid];
+  "R2_A3" -> "R1_A3" [style=solid];
+  "R3_A2" -> "R2_A0" [style=solid];
+  "R3_A2" -> "R2_A1" [style=solid];
+  "R3_A2" -> "R2_A2" [style=solid];
+  "R3_A2" -> "R2_A3" [style=solid];
+  "R3_A1" -> "R2_A0" [style=solid];
+  "R3_A1" -> "R2_A1" [style=solid];
+  "R3_A1" -> "R2_A2" [style=solid];
+  "R3_A1" -> "R2_A3" [style=solid];
+  "R1_A2" -> "R0_A0" [style=solid];
+  "R1_A2" -> "R0_A1" [style=solid];
+  "R1_A2" -> "R0_A2" [style=solid];
+  "R1_A2" -> "R0_A3" [style=solid];
+  "R2_A2" -> "R1_A0" [style=solid];
+  "R2_A2" -> "R1_A1" [style=solid];
+  "R2_A2" -> "R1_A2" [style=solid];
+  "R2_A2" -> "R1_A3" [style=solid];
+
+  // Round grouping
+  {rank=same; "R0_A0" "R0_A1" "R0_A2" "R0_A3" }
+  {rank=same; "R1_A0" "R1_A1" "R1_A2" "R1_A3" }
+  {rank=same; "R2_A0" "R2_A1" "R2_A2" "R2_A3" }
+  {rank=same; "R3_A0" "R3_A1" "R3_A2" "R3_A3" }
+
+  // Legend
+  subgraph cluster_legend {
+    label="Legend";
+    style=filled;
+    fillcolor=lightgrey;
+    
+    legend_leader [label="Leader Round", style="filled,bold", fillcolor=white];
+    legend_strong [label="Strong Link", shape=plaintext];
+    legend_weak [label="Weak Link", shape=plaintext];
+    legend_strong -> legend_weak [style=solid, label="strong"];
+    legend_weak -> legend_leader [style=dashed, label="weak"];
+  }
+}

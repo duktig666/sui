@@ -2988,6 +2988,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "consensus-study"
+version = "1.63.0"
+dependencies = [
+ "consensus-config",
+ "consensus-core",
+ "consensus-types",
+ "criterion",
+ "fastcrypto",
+ "rstest",
+ "serde",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "consensus-types"
 version = "0.1.0"
 dependencies = [
@@ -3587,6 +3602,14 @@ dependencies = [
  "darling 0.20.10",
  "quote",
  "syn 2.0.99",
+]
+
+[[package]]
+name = "dag-visualizer"
+version = "1.63.0"
+dependencies = [
+ "clap",
+ "consensus-study",
 ]
 
 [[package]]

@@ -212,7 +212,7 @@ members = [
   "crates/typed-store-derive",
   "crates/typed-store-error",
   "crates/typed-store-workspace-hack",
-  "crates/x",
+  "crates/x", "notes/experiments/consensus-poc/consensus-study", "notes/experiments/dag-visualizer",
   "sui-execution",
   "sui-execution/cut",
   "sui-execution/latest/sui-adapter",
