@@ -1,0 +1,47 @@
+[package]
+name = "simple-token-chain"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+# Consensus framework
+consensus-framework = { path = "../consensus-framework" }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+bincode = { workspace = true }
+
+# RPC
+jsonrpsee = { version = "0.24", features = ["server", "client", "macros"] }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Utilities
+bytes = { workspace = true }
+hex = { workspace = true }
+blake3 = "1.5"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+[[example]]
+name = "client"
+path = "examples/client.rs"
+
+[[bench]]
+name = "throughput"
+harness = false
+
+[lints]
+workspace = true

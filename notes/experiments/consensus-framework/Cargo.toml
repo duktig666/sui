@@ -1,0 +1,34 @@
+[package]
+name = "consensus-framework"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+# Sui consensus dependencies
+consensus-core = { path = "../../../consensus/core" }
+consensus-config = { path = "../../../consensus/config" }
+consensus-types = { path = "../../../consensus/types" }
+sui-types = { path = "../../../crates/sui-types" }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+bincode = { workspace = true }
+
+# Utilities
+async-trait = { workspace = true }
+bytes = { workspace = true }
+hex = { workspace = true }
+blake3 = "1.5"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[lints]
+workspace = true
