@@ -1,6 +1,6 @@
 # Sui 共识层研究与 AppChain 开发 - 一周速成计划
 
-> 基于 AI 辅助的快速迭代开发，在一周内完成从理解到实现的完整流程
+> 基于 辅助的快速迭代开发，在一周内完成从理解到实现的完整流程
 
 ---
 
@@ -31,17 +31,17 @@ mkdir -p notes/research/{consensus,architecture,performance}
 mkdir -p notes/experiments/{consensus-poc,appchain,benchmarks}
 mkdir -p notes/docs
 
-# 2. 快速阅读关键文件（AI 辅助总结）
+# 2. 快速阅读关键文件（辅助总结）
 cd notes/research/consensus
 ```
 
-**必读文件列表**（按顺序，使用 AI 总结）：
-1. `consensus/types/src/block.rs` - 10分钟
-2. `consensus/core/src/context.rs` - 15分钟
-3. `consensus/core/src/dag_state.rs` - 30分钟
-4. `consensus/core/src/core.rs` - 45分钟
-5. `consensus/core/src/base_committer.rs` - 30分钟
-6. `consensus/core/src/authority_node.rs` - 30分钟
+**必读文件列表**（按顺序）：
+1. `consensus/types/src/block.rs`
+2. `consensus/core/src/context.rs`
+3. `consensus/core/src/dag_state.rs`
+4. `consensus/core/src/core.rs`
+5. `consensus/core/src/base_committer.rs`
+6. `consensus/core/src/authority_node.rs`
 
 **输出文档**：
 - `notes/research/consensus/core-components-analysis.md`
@@ -91,11 +91,11 @@ cargo new --lib consensus-study
 cd consensus/core
 cargo bench --bench commit_finalizer_bench | tee ~/notes/research/performance/baseline-bench.txt
 
-# 2. 运行 simtest（AI 分析输出）
+# 2. 运行 simtest
 cargo simtest -p consensus-simtests -- --nocapture > ~/notes/research/performance/simtest-output.txt
 ```
 
-**使用 AI 分析**：
+**分析**：
 - 提取关键性能指标
 - 识别瓶颈
 - 总结性能特性
@@ -107,7 +107,7 @@ cd notes/experiments/benchmarks
 cargo new --lib consensus-benchmarks
 ```
 
-**实现测试**（AI 辅助编码）：
+**实现测试**（辅助编码）：
 
 ```rust
 // benches/parameter_sensitivity.rs
@@ -160,7 +160,7 @@ cargo new --lib consensus-framework
 cd consensus-framework
 ```
 
-**1. 设计核心 Trait** (2小时，AI 辅助设计)
+**1. 设计核心 Trait** (2小时，辅助设计)
 
 ```rust
 // src/traits.rs
@@ -198,7 +198,7 @@ pub trait StateManager: Send + Sync {
 }
 ```
 
-**2. 实现 Mysticeti 适配器** (4小时，AI 辅助编码)
+**2. 实现 Mysticeti 适配器** (4小时，辅助编码)
 
 ```rust
 // src/mysticeti_adapter.rs
@@ -241,7 +241,7 @@ impl<E: ExecutionEngine> ConsensusProtocol for MysticetiAdapter<E> {
 }
 ```
 
-**3. 编写集成测试** (2小时，AI 辅助)
+**3. 编写集成测试** (2小时，辅助)
 
 ```rust
 // tests/integration_test.rs
@@ -282,7 +282,7 @@ cargo new --bin simple-token-chain
 cd simple-token-chain
 ```
 
-**1. 定义数据结构** (1小时，AI 生成)
+**1. 定义数据结构**
 
 ```rust
 // src/types.rs
@@ -305,7 +305,7 @@ pub struct Account {
 pub type State = HashMap<Address, Account>;
 ```
 
-**2. 实现执行引擎** (3小时，AI 辅助)
+**2. 实现执行引擎**
 
 ```rust
 // src/executor.rs
@@ -368,7 +368,7 @@ impl TokenExecutor {
 
 #### 下午 (4小时): 节点实现
 
-**3. 实现节点核心** (2小时，AI 辅助)
+**3. 实现节点核心** (2小时，辅助)
 
 ```rust
 // src/node.rs
@@ -408,7 +408,7 @@ impl TokenChainNode {
 }
 ```
 
-**4. 添加 RPC 服务** (2小时，AI 生成)
+**4. 添加 RPC 服务**
 
 ```rust
 // src/rpc.rs
@@ -454,7 +454,7 @@ impl TokenChainRpcServer for RpcServerImpl {
 
 #### 上午 (4小时): 完成主程序
 
-**5. 实现主入口** (2小时，AI 辅助)
+**5. 实现主入口** (2小时，辅助)
 
 ```rust
 // src/main.rs
@@ -542,7 +542,7 @@ echo "  Node 3: http://127.0.0.1:9003"
 
 #### 下午 (4小时): 测试和示例
 
-**8. 编写集成测试** (2小时，AI 生成)
+**8. 编写集成测试**
 
 ```rust
 // tests/integration_tests.rs
@@ -596,7 +596,7 @@ async fn test_transfer() {
 }
 ```
 
-**9. 创建客户端示例** (2小时，AI 辅助)
+**9. 创建客户端示例** (2小时，辅助)
 
 ```rust
 // examples/client.rs
@@ -664,7 +664,7 @@ async fn main() -> Result<()> {
 
 #### 上午 (4小时): 测试完善
 
-**1. 端到端测试** (2小时，AI 辅助)
+**1. 端到端测试** (2小时，辅助)
 
 ```rust
 // tests/e2e_tests.rs
@@ -741,7 +741,7 @@ perf record -g cargo run --release
 perf report
 ```
 
-**4. 优化关键路径** (2小时，AI 辅助)
+**4. 优化关键路径** (2小时，辅助)
 
 - 减少不必要的克隆
 - 优化序列化/反序列化
@@ -772,7 +772,7 @@ let balance = executor.lock().await.get_balance(&addr);
 
 #### 上午 (4小时): 技术文档
 
-**1. 架构设计文档** (2小时，AI 辅助)
+**1. 架构设计文档** (2小时，辅助)
 
 ```markdown
 # notes/docs/architecture.md
@@ -795,7 +795,7 @@ let balance = executor.lock().await.get_balance(&addr);
 ...
 ```
 
-**2. API 参考文档** (2小时，AI 生成)
+**2. API 参考文档**
 
 ```markdown
 # notes/docs/api-reference.md
@@ -837,7 +837,7 @@ let balance = executor.lock().await.get_balance(&addr);
 
 #### 下午 (4小时): 教程和总结
 
-**3. 快速开始指南** (1小时，AI 辅助)
+**3. 快速开始指南** (1小时，辅助)
 
 ```markdown
 # notes/docs/getting-started.md
@@ -870,7 +870,7 @@ cargo nextest run
 ```
 ```
 
-**4. 研究总结报告** (3小时，AI 辅助整理)
+**4. 研究总结报告** (3小时，辅助整理)
 
 ```markdown
 # notes/docs/research-summary.md
@@ -957,17 +957,17 @@ cargo tarpaulin
 
 ### 后续工作
 
-#### 短期 (1-2周)
+#### 短期 
 - [ ] 添加更多交易类型
 - [ ] 实现持久化存储
 - [ ] 添加监控和可观测性
 
-#### 中期 (1-2月)
+#### 中期 
 - [ ] 实现智能合约支持
 - [ ] 性能优化
 - [ ] 生产环境部署
 
-#### 长期 (3-6月)
+#### 长期 
 - [ ] 跨链桥接
 - [ ] 去中心化治理
 - [ ] 主网启动
@@ -1052,7 +1052,7 @@ notes/
 
 ---
 
-## 💡 AI 辅助开发策略
+## 💡 辅助开发策略
 
 ### 高效使用 AI 的方法
 
@@ -1105,14 +1105,14 @@ notes/
 - 常见问题"
 ```
 
-### AI 驱动的迭代流程
+### 迭代开发流程
 
 ```
-1. 需求 → AI 生成初版代码
-2. 人工审查 → 提出改进点
-3. AI 优化 → 生成改进版本
+1. 明确需求 → 编写初版代码
+2. 代码审查 → 识别改进点
+3. 重构优化 → 改进实现
 4. 运行测试 → 发现问题
-5. AI 修复 → 解决问题
+5. 问题修复 → 解决缺陷
 6. 重复 2-5 直到满意
 ```
 

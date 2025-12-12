@@ -710,5 +710,4 @@ pub async fn start(...) -> Self {
 
 **研究结论**: Mysticeti 是一个设计精良的 DAG-based BFT 共识协议，通过 wave-based commit 和 pipelining 实现了高吞吐低延迟。代码模块化程度高，适合作为共识框架进行二次开发。
 
-**耗时**: ~4 小时
 **理解程度**: 70% （核心机制已掌握，细节需进一步实践）

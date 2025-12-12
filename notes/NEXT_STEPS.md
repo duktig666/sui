@@ -32,7 +32,7 @@
 ## 🚀 路线图概览
 
 ```
-现在 ──────────────► 1-2周 ──────────► 1-2月 ──────────► 3-6月
+现在 ──────────────► 短期 ──────────► 中期 ──────────► 长期
   │                    │                │                │
 原型完成            生产准备         功能完善         主网部署
   │                    │                │                │
@@ -50,7 +50,7 @@
 
 ### 任务清单
 
-#### 1.1 完整验证 ⏰ 2小时
+#### 1.1 完整验证
 
 **验证区块链功能**:
 ```bash
@@ -78,7 +78,7 @@ cargo fmt --check
 - ✅ 客户端演示成功
 - ✅ 0 clippy warnings
 
-#### 1.2 代码提交 ⏰ 30分钟
+#### 1.2 代码提交
 
 ```bash
 # 1. 查看修改
@@ -102,10 +102,6 @@ Key achievements:
 - Abstracted Mysticeti consensus into reusable framework
 - Built fully functional blockchain with Mint/Transfer
 - Established comprehensive testing and documentation
-- Verified 303% efficiency improvement with AI assistance
-
-🤖 Generated with Claude Code
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 EOF
 )"
 
@@ -113,7 +109,7 @@ EOF
 git log -1 --stat
 ```
 
-#### 1.3 性能基准收集 ⏰ 1小时
+#### 1.3 性能基准收集
 
 **运行完整性能测试**:
 ```bash
@@ -156,11 +152,11 @@ EOF
 
 ---
 
-## 📅 阶段 2: 短期改进 (1-2周)
+## 📅 阶段 2: 短期改进
 
 **目标**: 添加生产级基础特性
 
-### 2.1 持久化存储 ⏰ 3-4天
+### 2.1 持久化存储
 
 **实现 RocksDB 集成**:
 
@@ -238,7 +234,7 @@ async fn test_persistence() {
 }
 ```
 
-### 2.2 交易签名 ⏰ 2-3天
+### 2.2 交易签名
 
 **添加密钥对和签名**:
 
@@ -320,7 +316,7 @@ pub async fn submit_signed_transaction(&self, signed_tx: SignedTransaction)
 }
 ```
 
-### 2.3 多节点测试网 ⏰ 3-4天
+### 2.3 多节点测试网
 
 **创建多节点配置**:
 
@@ -396,7 +392,7 @@ async fn test_multi_node_consistency() {
 }
 ```
 
-### 2.4 监控和日志 ⏰ 2天
+### 2.4 监控和日志
 
 **添加 metrics**:
 ```toml
@@ -445,11 +441,11 @@ async fn get_metrics(&self) -> RpcResult<String> {
 
 ---
 
-## 📅 阶段 3: 中期增强 (1-2月)
+## 📅 阶段 3: 中期增强
 
 **目标**: 功能完善和生态工具
 
-### 3.1 CLI 工具 ⏰ 1周
+### 3.1 CLI 工具
 
 **创建命令行工具**:
 ```bash
@@ -545,7 +541,7 @@ token-cli transfer --from alice --to bob --amount 100
 token-cli status --rpc-url http://127.0.0.1:9001
 ```
 
-### 3.2 Web Dashboard ⏰ 1-2周
+### 3.2 Web Dashboard
 
 **技术栈**:
 - Frontend: React + TypeScript
@@ -574,7 +570,7 @@ token-dashboard/
 └── package.json
 ```
 
-### 3.3 SDK 库 ⏰ 1周
+### 3.3 SDK 库
 
 **Rust SDK**:
 ```rust
@@ -645,7 +641,7 @@ class TokenChainClient:
         return result["result"]
 ```
 
-### 3.4 性能优化 ⏰ 1周
+### 3.4 性能优化
 
 **优化清单**:
 
@@ -687,11 +683,11 @@ rkyv = "0.7"  # 零拷贝序列化
 
 ---
 
-## 📅 阶段 4: 长期愿景 (3-6月)
+## 📅 阶段 4: 长期愿景
 
 **目标**: 生产级部署和生态发展
 
-### 4.1 智能合约支持 ⏰ 1-2月
+### 4.1 智能合约支持
 
 **集成 Move VM**:
 ```rust
@@ -729,7 +725,7 @@ impl ContractExecutor {
 }
 ```
 
-### 4.2 跨链桥接 ⏰ 1-2月
+### 4.2 跨链桥接
 
 **设计跨链桥**:
 ```rust
@@ -761,7 +757,7 @@ impl Bridge {
 }
 ```
 
-### 4.3 治理机制 ⏰ 2-3周
+### 4.3 治理机制
 
 **提案和投票**:
 ```rust
@@ -800,7 +796,7 @@ impl Governance {
 }
 ```
 
-### 4.4 安全审计和主网部署 ⏰ 1月
+### 4.4 安全审计和主网部署
 
 **安全审计清单**:
 - [ ] 代码安全审计
@@ -820,42 +816,42 @@ impl Governance {
 
 ## 📊 优先级矩阵
 
-| 任务 | 重要性 | 紧急性 | 优先级 | 预计时间 |
-|------|--------|--------|--------|---------|
-| 完整验证 | 高 | 高 | P0 | 2h |
-| 代码提交 | 高 | 高 | P0 | 30min |
-| 性能基准 | 高 | 中 | P1 | 1h |
-| 持久化存储 | 高 | 中 | P1 | 3-4天 |
-| 交易签名 | 高 | 中 | P1 | 2-3天 |
-| 多节点测试 | 高 | 低 | P2 | 3-4天 |
-| 监控系统 | 中 | 中 | P2 | 2天 |
-| CLI 工具 | 中 | 低 | P3 | 1周 |
-| Web Dashboard | 低 | 低 | P4 | 1-2周 |
+| 任务 | 重要性 | 紧急性 | 优先级 |
+|------|--------|--------|--------|
+| 完整验证 | 高 | 高 | P0 |
+| 代码提交 | 高 | 高 | P0 |
+| 性能基准 | 高 | 中 | P1 |
+| 持久化存储 | 高 | 中 | P1 |
+| 交易签名 | 高 | 中 | P1 |
+| 多节点测试 | 高 | 低 | P2 |
+| 监控系统 | 中 | 中 | P2 |
+| CLI 工具 | 中 | 低 | P3 |
+| Web Dashboard | 低 | 低 | P4 |
 
 ---
 
 ## 🎯 推荐执行顺序
 
-### 本周 (Week 1)
-1. ✅ 完整验证 (2小时)
-2. ✅ 代码提交 (30分钟)
-3. ✅ 性能基准 (1小时)
+### 第一阶段
+1. ✅ 完整验证
+2. ✅ 代码提交
+3. ✅ 性能基准
 
-### Week 2-3
-4. 持久化存储 (3-4天)
-5. 交易签名 (2-3天)
-6. 监控系统 (2天)
+### 第二阶段
+4. 持久化存储
+5. 交易签名
+6. 监控系统
 
-### Week 4-5
-7. 多节点测试 (3-4天)
-8. CLI 工具 (1周)
+### 第三阶段
+7. 多节点测试
+8. CLI 工具
 
-### Month 2
+### 第四阶段
 9. 性能优化
 10. SDK 库开发
 11. Web Dashboard
 
-### Month 3-6
+### 第五阶段
 12. 智能合约支持
 13. 跨链桥接
 14. 治理机制
