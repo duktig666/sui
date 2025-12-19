@@ -1,0 +1,40 @@
+[package]
+name = "dex-rollup"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+# Local consensus framework
+consensus-framework = { path = "../consensus-framework" }
+
+# Sui dependencies (for types and crypto)
+sui-types = { path = "../../../crates/sui-types" }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+bincode = { workspace = true }
+
+# Utilities
+async-trait = { workspace = true }
+bytes = { workspace = true }
+hex = { workspace = true }
+
+# Cryptography
+blake3 = "1.5"
+
+# Time and collections
+dashmap = "6.1"
+parking_lot = "0.12"
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[lints]
+workspace = true
