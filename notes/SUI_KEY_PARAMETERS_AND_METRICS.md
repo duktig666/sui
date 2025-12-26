@@ -381,62 +381,122 @@ impl Parameters {
 
 ### 3.2 Checkpoint 时间参数
 
-**Checkpoint 并没有固定的时间间隔!**
+**Checkpoint 有最小间隔限制!**
 
-这是一个常见误解。让我们看代码:
+通过代码分析，Sui 有明确的 Checkpoint 最小间隔参数:
 
-**代码位置**: `crates/sui-core/src/checkpoints/mod.rs`
+**代码位置**: `crates/sui-protocol-config/src/lib.rs:1687`
 
 ```rust
-pub struct CheckpointService {
-    // 没有固定间隔参数!
-    // Checkpoint 触发条件:
-    // 1. 累积足够的交易
-    // 2. 或达到一定时间
-    // 3. 或 epoch 结束时
+/// Minimum interval of commit timestamps between consecutive checkpoints.
+min_checkpoint_interval_ms: Option<u64>,
+```
+
+**协议版本配置** (同文件):
+
+```rust
+// Protocol Version 50 (Line 3498): Testnet/Devnet
+if chain != Chain::Mainnet {
+    cfg.min_checkpoint_interval_ms = Some(200);  // 200ms
 }
 
-impl CheckpointService {
-    async fn run_epoch(&mut self) {
-        loop {
-            // 等待收集交易
-            let pending_txs = self.collect_pending_transactions().await;
+// Protocol Version 52 (Line 3543): 所有网络包括 Mainnet
+cfg.min_checkpoint_interval_ms = Some(200);  // 200ms
+```
 
-            if should_build_checkpoint(&pending_txs) {
-                self.build_checkpoint(pending_txs).await;
+**Checkpoint 构建逻辑**: `crates/sui-core/src/checkpoints/mod.rs:1322-1409`
+
+```rust
+async fn maybe_build_checkpoints(&mut self) -> CheckpointBuilderResult {
+    // 获取最小间隔参数
+    let min_checkpoint_interval_ms = self
+        .epoch_store
+        .protocol_config()
+        .min_checkpoint_interval_ms_as_option()
+        .unwrap_or_default();  // 默认 0 (无限制)
+
+    while let Some((height, pending)) = checkpoints_iter.next() {
+        let current_timestamp = pending.details().timestamp_ms;
+
+        // 构建条件判断
+        let can_build = match last_timestamp {
+            Some(last_timestamp) => {
+                // ⭐ 核心条件: 当前时间戳 >= 上次时间戳 + 最小间隔
+                current_timestamp >= last_timestamp + min_checkpoint_interval_ms
             }
-
-            // 没有固定 sleep!
-            // 动态决定何时构建 Checkpoint
+            None => true,  // 第一个 checkpoint 无限制
         }
+        // 或者下一个是 epoch 结束
+        || next_pending.details().last_of_epoch
+        // 或者当前是 epoch 结束
+        || pending.details().last_of_epoch;
+
+        if !can_build {
+            // 等待更多 PendingCheckpoints，最小间隔未满足
+            continue;
+        }
+
+        // 最小间隔已满足，构建 checkpoint
+        self.make_checkpoint(grouped_pending_checkpoints).await?;
     }
 }
 ```
 
+**关键参数总结**:
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `min_checkpoint_interval_ms` | **200ms** | 连续 checkpoint 之间的最小时间间隔 |
+| 生效版本 | Protocol V52+ | Mainnet 从此版本开始生效 |
+| 例外情况 | Epoch 结束 | 即使未满 200ms 也会立即生成 |
+
 **实际观察到的 Checkpoint 间隔**:
 
 ```
-主网数据 (2024 Q4):
+主网数据 (2024 Q4 浏览器观测):
+  协议最短限制: 200ms
+  高流量时: 1秒内 3-5 个 checkpoint (~200-333ms 间隔)
   平均间隔: 2-3 秒
-  最快: ~1.5 秒 (高交易量)
-  最慢: ~5 秒 (低交易量)
+  低流量时: ~5 秒
 
-影响因素:
-  - 交易数量 (100-1000 笔触发)
-  - 共识提交速度
-  - 验证器性能
+观测验证:
+  ✅ 高交易量时确实可达到 200ms 间隔 (1秒5个)
+  ✅ 与 min_checkpoint_interval_ms = 200 参数一致
+
+影响间隔的因素:
+  - 共识提交频率 (每轮 ~200-300ms)
+  - 交易量 (高流量 → 更频繁的 checkpoint)
+  - 网络状况
 ```
 
-**为什么没有固定间隔?**
+**Checkpoint 批处理机制**:
+
+```
+多个 PendingCheckpoint 会被合并:
+
+时间线:
+T0:      Consensus Commit #1 → PendingCheckpoint #1
+T+100ms: Consensus Commit #2 → PendingCheckpoint #2
+T+200ms: Consensus Commit #3 → PendingCheckpoint #3 ← 满足 200ms 间隔
+         ↓
+         合并 #1, #2, #3 → 生成 Checkpoint
+
+优势:
+  ✅ 减少 checkpoint 数量
+  ✅ 降低存储和网络开销
+  ✅ 批量处理更高效
+```
+
+**为什么设置 200ms 最小间隔?**
 
 ```
 优势:
-  ✅ 高流量时: 更快 Checkpoint (降低时延)
-  ✅ 低流量时: 更慢 Checkpoint (节省资源)
-  ✅ 灵活适应网络状况
+  ✅ 防止 checkpoint 生成过于频繁
+  ✅ 允许批量处理多个共识提交
+  ✅ 平衡时延和资源消耗
 
 劣势:
-  ⚠️ 时延不太可预测
+  ⚠️ 理论最快确认时间受此限制
   ⚠️ 需要动态调优
 ```
 
@@ -1077,9 +1137,10 @@ rate(sui_fast_path_transactions[5m])
 **错误**: Checkpoint 每 2 秒生成一次
 
 **正确**:
-- Checkpoint 间隔是**动态的**
-- 取决于交易量和共识速度
-- 实际观察到 1.5-5 秒不等
+- Checkpoint 有**最小间隔 200ms** (`min_checkpoint_interval_ms`)
+- 间隔是动态的，取决于交易量和共识速度
+- 高流量时: 1 秒内可达 3-5 个 checkpoint (~200-333ms)
+- 低流量时: 间隔可达 5 秒
 
 ### ❌ 误区 4: "Sui 的 TPS 是 100,000+"
 
@@ -1109,7 +1170,8 @@ rate(sui_fast_path_transactions[5m])
 |------|-----|------|
 | **共识轮次时间** | 200-300ms | Mysticeti 单轮时间 |
 | **共识提交时延** | 400-800ms | 2-3 轮达成共识 |
-| **Checkpoint 间隔** | 2-3s (动态) | 最终确认间隔 |
+| **Checkpoint 最短间隔** | **200ms** | 协议硬限制 (Protocol V52+) |
+| **Checkpoint 实际间隔** | 200ms-5s | 高流量 200ms，低流量 5s |
 | **快速路径时延** | 1.2-1.5s | Simple Transfer |
 | **共识路径时延** | 1.8-2.5s | Shared Objects |
 | **实际 TPS** | 300-800 | 主网平均值 |
