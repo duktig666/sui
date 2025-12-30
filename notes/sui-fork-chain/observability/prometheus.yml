@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: sui
+    metrics_path: /metrics
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+          # 把下面的 targets 替换成你本机 Sui 节点的 metrics_address（从日志或配置文件获取）。
+          #
+          # - Prometheus 跑在 docker-compose 里时：
+          #   - targets 通常写 host.docker.internal:<port>
+          #   - 并确保节点 metrics 绑定在 0.0.0.0:<port>
+          #     （如果绑定在 127.0.0.1，容器通常无法访问宿主机 loopback）
+          #
+          # - Prometheus 跑在宿主机进程里时：
+          #   - targets 直接写 127.0.0.1:<port>
+          - host.docker.internal:9184
+          # - host.docker.internal:9185
+
+
