@@ -1,7 +1,8 @@
 # DEX L1 抽象层设计 / Abstraction Layer Design
 
-> **版本**: v1.0
+> **版本**: v1.1
 > **状态**: Draft
+> **最后更新**: 2025-12-31
 > **目标读者**: 技术评审 / 架构师
 
 ---
@@ -303,7 +304,7 @@ sui-core/src/authority.rs
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**修改策略**: 依赖注入，不修改 authority.rs 源码
+**修改策略**: 最小化修改，仅添加 Hook 注入点（见 7.2 修改清单）
 
 ### 5.2 Execution 层扩展
 
@@ -444,12 +445,39 @@ crates/
 
 ### 7.2 修改点清单 / Modification Checklist
 
-| 文件 | 修改类型 | 说明 |
-|-----|---------|------|
-| `sui-node/src/main.rs` | 配置注入 | 加载 DEX 配置 |
-| `sui-core/src/authority.rs` | Hook 注入 | TransactionRouter |
-| `sui-execution/src/lib.rs` | Precompile 注册 | DEX Precompile |
-| `Cargo.toml` (根) | 依赖添加 | 添加 dex-* crates |
+> **重要说明**：以下修改是 **必须的最小改动集**，不存在"零修改集成"的可能性。
+> 原则是 **最小化修改** 而非 **不修改**。
+
+| 文件 | 修改类型 | 修改行数 | 说明 |
+|-----|---------|---------|------|
+| `sui-node/src/main.rs` | 配置注入 | ~20 行 | 加载 DEX 配置，初始化 DEX 运行时 |
+| `sui-core/src/authority.rs` | Hook 注入 | ~50 行 | 添加 TransactionRouter 分发逻辑 |
+| `sui-execution/src/lib.rs` | Precompile 注册 | ~30 行 | 注册 DEX Precompile 地址 |
+| `Cargo.toml` (根) | 依赖添加 | ~10 行 | 添加 dex-* crates 到 workspace |
+| `crates/sui-core/Cargo.toml` | 依赖添加 | ~5 行 | 添加 dex-integration 依赖 |
+
+**修改示例 (authority.rs)**:
+
+```rust
+// 在 handle_transaction() 开头添加
+impl Authority {
+    pub async fn handle_transaction(&self, tx: Transaction) -> Result<Response> {
+        // +++ DEX Hook: 交易分类与路由
+        if let Some(dex_router) = &self.dex_router {
+            if dex_router.is_dex_transaction(&tx) {
+                return dex_router.handle(tx).await;
+            }
+        }
+        // --- DEX Hook 结束
+
+        // 原有 Sui 执行逻辑...
+    }
+}
+```
+
+**修改跟踪**：
+- 所有修改应记录在 `patches/sui-dex-hooks.patch` 文件中
+- 每次上游同步后需重新应用并解决冲突
 
 ### 7.3 版本兼容 / Version Compatibility
 
@@ -576,4 +604,21 @@ pub fn migrate(old: DexState) -> Result<DexState> {
 
 ---
 
-*文档版本: v1.0 | 最后更新: 2025-01-01*
+## 变更历史 / Change History
+
+| 版本 | 日期 | 变更内容 | 状态 |
+|-----|------|---------|------|
+| v1.0 | 2025-12-31 | 初始版本 | ✅ 有效 |
+| v1.1 | 2025-12-31 | 修正 7.2 改动面描述：删除"不修改"矛盾，改为"最小化修改"策略 | ✅ 有效 |
+
+### 待对齐事项 / Alignment Notes
+
+| 章节 | 状态 | 说明 |
+|-----|------|------|
+| 7.2 Authority 扩展 | ✅ 有效 | 明确改动清单，与 07-MOVE-INTEGRATION 一致 |
+| 4. Trait 设计 | ✅ 有效 | 接口边界已定义 |
+| 5. 扩展点 | ⚠️ 待验证 | 需配合实际代码验证 Hook 注入点 |
+
+---
+
+*文档版本: v1.1 | 最后更新: 2025-12-31*

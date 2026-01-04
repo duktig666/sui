@@ -1,30 +1,38 @@
 ## DEX L1 需求与详细设计评审（GPT）— 2025-12-31
 
+### 修订说明（2025-12-31）
+
+- **本次修订要求**：`drafts/` 下文件不作为参考，**仅对 `notes/dex_l1/docs/` 下文档进行评审**。
+- **修订动作**：已移除 `docs/` 目录之外文件的引用与基于其内容的对比结论；所有问题点与建议均以 `docs/01~10` 的文字为依据。
+
+### 二次复审结论（P0 整改后，2025-12-31）
+
+> 说明：以下复审结论 **仅基于** `notes/dex_l1/docs/01~10` 的最新内容。
+
+- **P0-01 指标口径**：✅ 已闭环（`docs/01` 1.3 指标口径表；`docs/02` 指标说明引用该表）
+- **P0-02 RPO=0/确认语义/持久化等级**：✅ 已闭环（`docs/02` AD-006；`docs/01` NFR-AVAIL-004；`docs/06` 7.1；`docs/10` SyncPolicy）
+- **P0-03 Sui 集成改动面**：✅ 已闭环（`docs/03` 7.2 修改点清单与 patch 跟踪）
+- **P0-04 Hybrid（存取款）原子性**：⚠️ 方案已闭环但文档仍有残留矛盾（`docs/07` 第 6 章已明确同步回调模型；前半仍残留“事件监听”旧描述需清理）
+- **P0-05 安全模型**：✅ 已补齐框架（`docs/02` 5.2 威胁建模 + `docs/04` 11 安全不变量），后续“参数/证据/惩罚流程”建议下沉为 P1
+
 ### 0. 评审范围与输入
 
-- **评审范围**：`notes/dex_l1/` 目录下的“需求”和“详细设计”（含系列文档与汇总设计文档），聚焦 Phase 1/Phase 2（现货 + 核心基础设施）可落地性与一致性。
+- **评审范围**：**仅评审** `notes/dex_l1/docs/` 目录下的“需求”和“详细设计”（共 10 篇），聚焦 Phase 1/Phase 2（现货 + 核心基础设施）可落地性与一致性。
 - **评审目标**：发现需求/设计之间的缺口与矛盾、识别关键风险与未决策点、给出可执行的改进建议与下一步清单。
 
 #### 0.1 评审材料清单
 
-- **需求**
-  - `notes/dex_l1/docs/01-REQUIREMENTS.md`（v1.0，Draft，最后更新 2025-01-01）
-- **详细设计（汇总）**
-  - `notes/dex_l1/dex-l1-detailed-design.md`（v1.0.0，最后更新 2025-01-XX，约 4k+ 行，含网络/API/安全/性能章节）
-- **详细设计（分册）**
-  - `notes/dex_l1/docs/02-ARCHITECTURE-OVERVIEW.md`
-  - `notes/dex_l1/docs/03-ABSTRACTION-DESIGN.md`
-  - `notes/dex_l1/docs/04-SEQUENCER-DESIGN.md`
-  - `notes/dex_l1/docs/05-MATCHING-ENGINE-DESIGN.md`
-  - `notes/dex_l1/docs/06-STORAGE-DESIGN.md`
-  - `notes/dex_l1/docs/07-MOVE-INTEGRATION-DESIGN.md`
-  - `notes/dex_l1/docs/08-SPOT-OVERVIEW.md`（最后更新 2024-01）
-  - `notes/dex_l1/docs/09-PERPETUAL-OVERVIEW.md`（最后更新 2024-01）
-  - `notes/dex_l1/docs/10-PERFORMANCE-DESIGN.md`（最后更新 2024-01）
-- **实现状态/约束**
-  - `notes/dex_l1/CLAUDE.md`（“编码宪法”：禁止 `unwrap/expect`、关键路径禁止同步 I/O、性能红线等）
-  - `notes/dex_l1/DEX_L1_IMPLEMENTATION_STATUS.md`
-  - `notes/dex_l1/dex-plan.md`
+- **docs/01~10（唯一参考来源）**
+  - `notes/dex_l1/docs/01-REQUIREMENTS.md`（需求规格）
+  - `notes/dex_l1/docs/02-ARCHITECTURE-OVERVIEW.md`（整体架构）
+  - `notes/dex_l1/docs/03-ABSTRACTION-DESIGN.md`（抽象层/扩展点）
+  - `notes/dex_l1/docs/04-SEQUENCER-DESIGN.md`（Sequencer）
+  - `notes/dex_l1/docs/05-MATCHING-ENGINE-DESIGN.md`（撮合引擎）
+  - `notes/dex_l1/docs/06-STORAGE-DESIGN.md`（存储/WAL/快照/恢复）
+  - `notes/dex_l1/docs/07-MOVE-INTEGRATION-DESIGN.md`（Move/Precompile/Hybrid）
+  - `notes/dex_l1/docs/08-SPOT-OVERVIEW.md`（现货概要）
+  - `notes/dex_l1/docs/09-PERPETUAL-OVERVIEW.md`（永续概要）
+  - `notes/dex_l1/docs/10-PERFORMANCE-DESIGN.md`（性能优化设计）
 
 ---
 
@@ -32,15 +40,15 @@
 
 #### 1.1 亮点
 
-- **文档体系完整**：需求（FR/NFR/用例/追踪矩阵/风险）+ 分模块设计（Sequencer/撮合/存储/Move 集成/性能）+ 汇总详细设计（含网络/API/安全/性能）。
+- **文档体系完整（以 docs 为准）**：需求（FR/NFR/用例/追踪矩阵/风险）+ 分模块设计（架构/抽象/Sequencer/撮合/存储/Move 集成）+ 现货/永续概览 + 性能优化设计。
 - **架构方向清晰**：Fast Path（Sequencer + Native Engine）/ 标准 Sui Path（Mysticeti + Move VM）/ Hybrid Path（存取款等）。
 - **复用原则明确**：强调复用 `typed-store`、`mysten-network`、`shared-crypto`、`mysten-metrics` 等，符合 Fork 可维护性目标。
 
 #### 1.2 主要结论
 
-- **需求与设计“方向可行”，但“口径/一致性不足”**：多处出现相互冲突的指标定义、执行路径、Sui 集成策略与持久化策略描述，导致无法严格判断 Phase 1 是否满足 P0 需求与验收标准。
-- **阻断项（P0）集中在**：指标口径统一、持久化/RPO 定义、Hybrid 原子性闭环、Sui Core 修改策略选择、安全模型补齐。
-- **建议**：先做一次“文档收敛/对齐”的小迭代（1~2 天），把关键决策与不一致点统一后再推进实现与评审，否则后续实现会不断返工。
+- **P0 口径已完成收敛**：指标口径（`docs/01` 1.3）、确认语义与持久化等级（`docs/02` AD-006）、最小改动面（`docs/03` 7.2）、Hybrid 同步回调（`docs/07` 6.*）、威胁建模/安全不变量（`docs/02` 5.2 + `docs/04` 11）已在 docs 内形成互相引用的闭环。
+- **当前主要风险转为“清理与可验收细化”**：`docs/07` 前半仍残留“事件监听”旧表述；`AD-006` vs `ADR-006` 命名不统一；安全/经济模型的证据与参数需补齐可验收定义；性能与硬件假设需通过测试验证。
+- **建议**：将上述残留项纳入 P1 文档修订与验收测试计划，避免实现阶段再次因口径漂移返工。
 
 ---
 
@@ -48,41 +56,27 @@
 
 > 说明：P0 = 会阻断上线/落地；P1 = 重要但可后续迭代；P2 = 建议优化。
 
-#### 2.1 P0（阻断项）
+#### 2.1 P0（整改复审状态）
 
-- **P0-01 指标口径/目标值在多文档不一致**
-  - **吞吐量**：`01-REQUIREMENTS.md`（峰值 ≥200K TPS、持续 ≥100K TPS） vs `dex-l1-detailed-design.md`（吞吐量 100K TPS） vs `DEX_L1_IMPLEMENTATION_STATUS.md`（目标 100K TPS） vs `notes/dex_l1/CLAUDE.md`（目标 TPS 200K）。
-  - **软/硬确认延迟**：`01-REQUIREMENTS.md`（软 <50ms，硬 <100ms） vs `DEX_L1_IMPLEMENTATION_STATUS.md`（软 <100ms，硬 <500ms） vs 其他设计文档（多处写 <100ms）。
-  - **撮合延迟定义**：有的写“单次撮合 <10μs”（算法操作级），有的写“撮合延迟 P99 <50ms”（请求级，从接收订单到撮合完成），需要明确“测量点/口径/分位数”。
-  - **建议**：在 `01-REQUIREMENTS.md` 中固化“指标字典”（metric name + measurement point + pXX + 条件），并在所有设计文档引用同一套定义（可在每篇文档顶部写“引用指标：NFR-PERF-xxx”）。
+- **P0-01 指标口径**：✅ 已闭环
+  - **证据**：`docs/01` 1.3 指标口径表；`docs/02` 指标说明引用该表并解释“~10ms 撮合路径贡献”与“<10μs 单次撮合”不矛盾。
+  - **剩余建议**：统一 `AD-006` / `ADR-006` 命名与引用方式（见 P1）。
 
-- **P0-02 “关键路径禁止同步 I/O”与“WAL/持久化保证(RPO=0)”描述冲突**
-  - `notes/dex_l1/CLAUDE.md`：**禁止关键路径同步 I/O**。
-  - `01-REQUIREMENTS.md`：RPO=0，机制写“WAL + 同步复制”。
-  - `06-STORAGE-DESIGN.md`：设计原则写“异步持久化，不阻塞主路径”，但 WAL 伪代码又出现 `write_all + sync_data()`（同步刷盘）。
-  - **必须先澄清的决策**（建议写成 ADR）：
-    - 软确认是否允许 **异步持久化**（存在少量丢单风险）？如果允许，需要把风险写进需求并定义“软确认语义”。
-    - 硬确认是否要求 **durable（fsync/复制完成）** 才返回？如果要求，硬确认延迟目标是否仍可达 <100ms？
-  - **建议**：把“软确认/硬确认”分别绑定到“持久化等级”，形成清晰的语义层级（例如：Soft = replicated in-memory quorum；Hard = fsync+quorum；Final = checkpoint）。
+- **P0-02 RPO=0 / 确认语义 / 持久化等级**：✅ 已闭环
+  - **证据**：`docs/02` AD-006 定义 Soft/Hard 与 durability/RPO；`docs/01` NFR-AVAIL-004 明确 RPO=0 仅适用于 Hard；`docs/06` 7.1、`docs/10` SyncPolicy 建立映射。
+  - **剩余建议**：补“故障注入验证 Hard=RPO=0”的验收测试与指标（P1）。
 
-- **P0-03 Sui 集成策略存在互斥方案且未收敛**
-  - `dex-plan.md` 与 `DEX_L1_IMPLEMENTATION_STATUS.md`：倾向**直接修改** `crates/sui-core/src/authority.rs`、`sui-execution/latest/...` 等。
-  - `03-ABSTRACTION-DESIGN.md`：提出“**依赖注入，不修改 authority.rs 源码**”并新增 `sui-core-ext` 等扩展 crate。
-  - 两条路线都会影响 Fork 维护成本与实现复杂度，必须择一或明确混合策略（哪些必须改 upstream，哪些可扩展实现）。
-  - **建议**：补一个“改动面清单 + 维护策略”并成为单一真相来源（建议放在 `dex-l1-detailed-design.md` 或新增 ADR 文档）。
+- **P0-03 Sui 集成改动面/边界**：✅ 已闭环
+  - **证据**：`docs/03` 7.2 修改点清单明确“必须的最小改动集（不存在零修改集成）”，并给出 `patches/sui-dex-hooks.patch` 的修改跟踪方式。
+  - **剩余建议**：将 `docs/03` 中“Hook 注入点待验证”转为实现侧的验证清单（P1）。
 
-- **P0-04 Hybrid（存取款）原子性闭环描述不一致**
-  - `07-MOVE-INTEGRATION-DESIGN.md` 同时出现“**事件监听更新余额**”与“**DEX 更新失败可通过 Effects 回滚**”两种表述。
-  - 若依赖“链下事件监听”，则无法保证与 Move 转账在同一事务内原子；若在 Authority 内“Move 执行后回调 DEX、合并 Effects”，则需要明确：
-    - 回调触发点（在哪个执行阶段？）
-    - 如何生成/合并 `TransactionEffects` 的关键字段（对象版本、事件、gas 等）
-    - 失败回滚模型（Move 成功但 DEX 更新失败时，如何回滚？是否必须使整个交易失败？）
-  - **建议**：把存款/取款做成“单事务内的 Hybrid 执行协议”并给出状态机与失败矩阵（Success/Fail 组合）。
+- **P0-04 Hybrid（存取款）原子性**：⚠️ 方案已闭环，但文档仍有残留矛盾
+  - **证据（方案闭环）**：`docs/07` 第 6 章：同步回调模型、失败场景矩阵、实现伪码，并明确“禁止事件监听模式”。
+  - **残留矛盾**：`docs/07` 前半仍出现“事件监听更新余额/监听 Deposited 事件”等旧描述（例如合约示例与 Hybrid Path 图）。建议删除或显式标注“旧方案已废弃”，避免误导实现。
 
-- **P0-05 安全模型覆盖不足（目前仅覆盖签名与限流的“薄层”）**
-  - `dex-l1-detailed-design.md` 的“安全性设计”目前主要是：签名验证 + 速率限制。
-  - 需求/架构里已出现的关键风险未形成可执行设计：Sequencer 作恶（排序操纵/审查/双花式软确认回滚）、重放与 nonce 语义、MEV/抢跑防护、密钥管理、管理员权限模型、多签/治理、审计与回滚策略、DoS（含内存/磁盘/网络）等。
-  - **建议**：补齐“威胁建模（Threat Model）+ 安全不变量（Invariants）+ 缓解措施落点（代码/配置/运营）”，至少覆盖 Phase 1 的 P0 风险。
+- **P0-05 安全模型**：✅ 已补齐框架（建议下沉为 P1 验收细化）
+  - **证据**：`docs/02` 5.2 威胁建模；`docs/04` 11 安全不变量与缓解措施。
+  - **剩余建议**：将“证据格式、Slash/治理触发条件、参数默认值与测试方法”补成可执行验收清单（P1）。
 
 #### 2.2 P1（重要改进项）
 
@@ -96,16 +90,17 @@
   - 建议统一为“定点数类型 + 明确的舍入策略 + 全链路约束（tick/step/min_notional）”。
 
 - **P1-03 API/RPC/WebSocket 需要补齐工程化要素**
-  - `dex-l1-detailed-design.md` 已给出 REST/OpenAPI 雏形与 WS 消息类型，但缺少：鉴权（钱包签名/会话）、幂等（clientOrderId 语义）、分页与游标、错误码统一、版本化策略、限流策略与返回码、兼容 Sui JSON-RPC 的边界说明。
+  - `07-MOVE-INTEGRATION-DESIGN.md` 与 `08-SPOT-OVERVIEW.md` 已覆盖 DEX RPC 扩展草案、REST/WS 端点与频道，但仍缺少：鉴权（钱包签名/会话）、幂等（`clientOrderId` 语义与去重窗口）、分页与游标、错误码统一、版本化策略、限流策略与返回码、兼容 Sui JSON-RPC 的边界说明。
 
-- **P1-04 观测与指标：示例代码与“编码宪法”冲突**
-  - 多篇文档的 metrics 示例使用 `unwrap()/expect()`（即使是示例，也与 `notes/dex_l1/CLAUDE.md` 的“绝对禁令”冲突，容易在实现时被照搬）。
-  - 建议：文档示例代码要么遵循禁令，要么明确标注“伪代码/示例，不可直接复制到生产代码”。
+- **P1-04 文档示例代码存在 `unwrap()/expect()`，建议标注“伪代码”或改写为可传播错误**
+  - `04-SEQUENCER-DESIGN.md`/`05-MATCHING-ENGINE-DESIGN.md`/`06-STORAGE-DESIGN.md`/`10-PERFORMANCE-DESIGN.md` 的指标与示例代码中可见 `unwrap()` 用法，容易在实现时被直接复制引入不可控 panic。
+  - 建议：统一在文档中标注“示例不可直接复制到生产”，或把示例改为 `Result`/错误传播风格，避免误用。
 
 #### 2.3 P2（可选优化项）
 
 - **P2-01 文档版本/更新时间不一致**
-  - `08/09/10` 为 2024-01；其余为 2025-01-01 / 2025-12-30；建议补“变更历史”并标注哪些内容已过期/被 `dex-l1-detailed-design.md` 覆盖。
+  - `08/09` 仍为 2024-01；`01~07`、`10` 多处已更新到 2025-12-31 并补齐变更历史。
+  - 建议：在 `08/09` 补“变更历史/与现行口径对齐说明”（至少对齐 `docs/01` 1.3 与 `docs/02` AD-006），避免读者误用旧口径。
 
 ---
 
@@ -119,14 +114,14 @@
   - 约束/假设/风险表较完整，有利于后续决策对齐。
 - **建议补强**
   - **验收标准可测试化**：为 P0 NFR 给出明确的压测方法、环境、流量模型与统计方式（例如：P99 的窗口、采样、剔除规则）。
-  - **确认语义定义**：Soft/Hard confirmation 的一致性、可回滚性、与持久化/复制的关系需要写入需求层，避免在设计层争论。
+  - **确认语义定义**：✅ 已由 `docs/01`（术语/指标口径）+ `docs/02`（AD-006）+ `docs/01`（NFR-AVAIL-004）形成闭环；建议补“Hard 确认超时/查询/重试”的验收测试用例。
   - **管理/权限模型**：FR-ADMIN 目前较粗，建议明确管理员身份与权限授予/撤销、审计日志需求、紧急暂停影响面。
 
-#### 3.2 Sequencer（`04-SEQUENCER-DESIGN.md` + 汇总设计）
+#### 3.2 Sequencer（`04-SEQUENCER-DESIGN.md`）
 
 - **需要明确的关键点**
   - **确定性**：Standby 节点重放批次时的确定性来源（同输入同输出）依赖哪些不变量（时钟、随机数、价格源等）。
-  - **Leader 作恶模型**：Leader 可通过排序/审查获利，硬确认如何约束其行为？需要更清晰的“可证伪/可惩罚/可恢复”设计（至少：检测 equivocation、拒绝非法 batch、强制切换）。
+  - **Leader 作恶模型**：✅ 已由 `docs/02` 5.2（威胁建模）+ `docs/04` 11（安全不变量/缓解措施）补齐；建议把“证据格式、Slash/治理触发条件、阈值参数默认值与测试方法”细化为可验收规范（P1）。
   - **状态同步**：切换时“从 DA 层获取最后确认序列号”的语义需和持久化策略对齐（DA 是必须组件还是可选？与 Sui checkpoint 的关系？）。
 
 #### 3.3 撮合引擎（`05-MATCHING-ENGINE-DESIGN.md`）
@@ -136,10 +131,10 @@
   - **自成交/风控**：`08-SPOT-OVERVIEW.md` 提及“自成交拒绝”等风控点，但撮合引擎详细设计中未落地（需要明确发生在撮合前还是撮合后、如何处理 maker/taker 同账户等）。
   - **手续费与结算**：建议统一资产扣费规则（从 quote 扣还是 base 扣），并明确 rounding 与最小单位。
 
-#### 3.4 存储（`06-STORAGE-DESIGN.md` + 汇总设计）
+#### 3.4 存储（`06-STORAGE-DESIGN.md`）
 
 - **关键风险**
-  - **异步持久化与一致性**：如果软确认先返回而 WAL 未落盘，崩溃恢复将出现“已对用户确认但未持久化”的不一致，需要明确定义这是否允许，以及如何通过硬确认/客户端重试/补偿处理。
+  - **异步持久化与一致性**：✅ 已由 `docs/02` AD-006 与 `docs/06` 7.1 将 Soft/Hard 的持久化等级与 RPO 语义绑定；建议补“故障注入验证 Hard=RPO=0”的验收测试（P1）。
   - **快照流程“暂停写入”**：暂停窗口多大、是否会影响 50ms SLA、如何做增量快照避免长暂停，需要补工程细节。
 
 #### 3.5 Move 集成（`07-MOVE-INTEGRATION-DESIGN.md`）
@@ -147,39 +142,40 @@
 - **需要补齐**
   - **DEX 包地址/版本治理**：`DEX_PACKAGE_ID` 作为识别依据，升级/迁移如何处理？是否允许多个版本并存？
   - **Gas/费用模型**：DEX 原生路径如何计费与限流，避免免费 spam。
-  - **Hybrid 原子性**：建议将“事件监听”表述替换为“读取 Move Effects 后在同一执行上下文内回调 DEX”，并明确失败回滚机制。
+  - **Hybrid 原子性**：✅ `docs/07` 第 6 章已重写为“同步回调模型 + 失败矩阵 + 实现伪码”；仍需清理 `docs/07` 前半“事件监听”旧描述，避免实现被误导。
 
-#### 3.6 API/网络（汇总设计第 9/10 章）
+#### 3.6 API/市场数据/RPC（主要来自 `07-MOVE-INTEGRATION-DESIGN.md` 与 `08-SPOT-OVERVIEW.md`）
 
-- **API 设计建议**
-  - 把 REST/WS 与“链上交易提交（PTB/JSON-RPC）”的职责边界讲清楚：哪些是撮合指令（必须签名上链/走 authority），哪些是纯查询（可走 fullnode/索引服务）。
-  - 增加：错误码与 HTTP 状态码映射、幂等语义（clientOrderId）、分页/游标、版本控制（`/api/v1` 的升级策略）。
+- **API 设计建议（以 docs 为准）**
+  - `08-SPOT-OVERVIEW.md` 给出了 REST endpoints 与 WebSocket channels；`07-MOVE-INTEGRATION-DESIGN.md` 给出了 DEX RPC 扩展接口草案。建议统一三者的边界：哪些是“撮合指令”（需要签名交易进入执行路径），哪些是“只读查询”（可走独立服务/缓存）。
+  - 建议补齐：错误码统一、HTTP 状态码映射、幂等语义（`clientOrderId` 的约束与去重窗口）、分页/游标、版本化策略（`/api/v1` 的升级策略）与限流策略的对外契约。
 
 ---
 
 ### 4. 建议的“对齐/收敛”行动清单（可直接执行）
 
-#### 4.1 P0（本周内建议完成）
+#### 4.1 P0（整改后状态）
 
-- **A1 统一指标字典**：在 `01-REQUIREMENTS.md` 增加“指标口径表”（测量点、统计方式、条件），并在其它设计文档引用该表。
-- **A2 明确确认语义与持久化等级**：补 ADR（或在汇总设计中新增小节）定义 Soft/Hard 对应的 durability/replication 条件。
-- **A3 选定 Sui 集成路线**：明确“必须修改的 upstream 文件清单” vs “可扩展实现”，并与 `03-ABSTRACTION-DESIGN.md`/`dex-plan.md`/实现状态文档对齐。
-- **A4 定义 Hybrid 原子性协议**：输出存取款状态机 + 失败矩阵 + Effects 合并规则。
-- **A5 安全建模补齐**：最少完成 Sequencer 作恶/审查/重放/DoS 的威胁建模与缓解落点。
+- **A1 统一指标口径表**：✅ 已完成（`docs/01` 1.3；`docs/02` 指标说明引用）。
+- **A2 明确确认语义与持久化等级**：✅ 已完成（`docs/02` AD-006；`docs/01` NFR-AVAIL-004；`docs/06` 7.1；`docs/10` SyncPolicy）。
+- **A3 收敛 Sui 集成改动面**：✅ 已完成（`docs/03` 7.2 修改点清单 + patch 跟踪）。
+- **A4 定义 Hybrid 原子性协议**：⚠️ 基本完成（`docs/07` 6.* 已闭环；仍需清理 `docs/07` 前半“事件监听”旧描述）。
+- **A5 安全建模补齐**：✅ 已完成（`docs/02` 5.2 + `docs/04` 11）。
 
 #### 4.2 P1（两周内建议完成）
 
 - **B1 撤单索引方案落地**：明确订单句柄/索引的稳定性设计，补复杂度与内存成本评估。
 - **B2 精度与溢出策略统一**：定义统一定点数类型与 rounding；所有 notional/fee 使用安全宽位计算（如 `u128`）。
 - **B3 API 工程化补齐**：幂等/分页/错误码/鉴权/版本策略。
-- **B4 文档示例与“编码宪法”一致**：将示例中的 `unwrap/expect` 替换为可传播错误或明确标注“不可直接复制”。
+- **B4 文档示例一致化**：将示例中的 `unwrap/expect` 替换为可传播错误或明确标注“不可直接复制”。
+- **B5 命名一致化**：统一 `AD-006` vs `ADR-006` 的命名与引用方式，避免后续引用漂移。
 
 ---
 
 ### 5. 需要产品/架构决策确认的问题（开放问题清单）
 
-- **Q1**：软确认是否允许在“未 durable 落盘”前返回？如果允许，最大可接受丢失窗口是多少？客户端如何感知与补偿？
-- **Q2**：硬确认的定义到底是“2f+1 内存确认”还是“2f+1 + durable（fsync/复制）”？对应的延迟目标是否需要调整？
+- **Q1**：✅ 已在 `docs/02` AD-006 明确：Soft 允许异步持久化且不承诺 RPO；Hard=2f+1 durable ack（RPO=0），并给出客户端责任。
+- **Q2**：✅ 已在 `docs/02` AD-006 明确：Hard 与 fsync 完成绑定，并给出 100ms 预算分解与硬件/网络假设。
 - **Q3**：Sequencer 的中心化程度与治理方案：是否计划多 Sequencer、轮换、惩罚、或提交加密（anti-front-run）？
 - **Q4**：DEX 原生路径的 gas/费用/限流模型：如何避免免费高频 spam，同时保持与 Sui 兼容？
 - **Q5**：存取款托管账户（`@dex_custody`）的权限与管理：多签？治理？升级/迁移如何进行？
@@ -188,6 +184,10 @@
 
 ### 6. 结语
 
-整体设计方向（Sui Fork + Native Engine + Sequencer + 双确认）是清晰且有可行路径的；当前最大的风险并非“缺少模块”，而是**关键语义与目标口径尚未收敛**，会导致实现与测试阶段频繁返工。建议优先按本评审的 P0 清单做一次文档对齐与决策落盘，再进入下一轮实现与正式评审。
+整体设计方向（Sui Fork + Native Engine + Sequencer + 双确认）清晰，且关键 P0 口径已收敛。建议把后续工作聚焦在：
+
+1. 清理文档内部残留矛盾（优先 `docs/07` 的旧“事件监听”表述）
+2. 统一 `AD-006/ADR-006` 命名
+3. 将安全/经济/验收测试补成可执行、可验证的规范，降低落地返工风险
 
 

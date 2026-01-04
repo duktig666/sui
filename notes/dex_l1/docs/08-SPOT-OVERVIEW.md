@@ -2,7 +2,8 @@
 # 现货交易概要设计 / Spot Trading Overview Design
 
 > **文档状态 / Status**: 概要设计 / Overview Design
-> **最后更新 / Last Updated**: 2024-01
+> **版本**: v1.0
+> **最后更新 / Last Updated**: 2025-12-31
 > **关联文档 / Related**: 05-MATCHING-ENGINE-DESIGN.md, 07-MOVE-INTEGRATION-DESIGN.md
 
 ---
@@ -738,11 +739,19 @@ pub fn calculate_mark_price(perp_market: MarketId) -> Decimal {
 
 ---
 
-## 文档历史 / Document History
+## 变更历史 / Change History
 
-| 版本 | 日期 | 作者 | 变更 |
-|-----|------|-----|------|
-| 0.1 | 2024-01 | DEX Team | 初稿 |
+| 版本 | 日期 | 变更内容 | 状态 |
+|-----|------|---------|------|
+| v1.0 | 2025-12-31 | 初始版本 | ✅ 有效 |
+
+### 待对齐事项 / Alignment Notes
+
+| 章节 | 状态 | 说明 |
+|-----|------|------|
+| 3. 订单类型 | ✅ 有效 | 与 05-MATCHING-ENGINE 对齐 |
+| 5. 手续费模型 | ⚠️ 概要 | 费率参数待经济模型确认 |
+| 7. 市场数据 | ⚠️ 概要 | 数据服务接口待 API 设计 |
 
 ---
 

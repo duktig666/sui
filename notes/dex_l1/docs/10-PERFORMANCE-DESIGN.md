@@ -2,7 +2,8 @@
 # 性能优化设计 / Performance Optimization Design
 
 > **文档状态 / Status**: 详细设计 / Detailed Design
-> **最后更新 / Last Updated**: 2024-01
+> **版本**: v1.1
+> **最后更新 / Last Updated**: 2025-12-31
 > **关联文档 / Related**: 04-SEQUENCER-DESIGN.md, 05-MATCHING-ENGINE-DESIGN.md, 06-STORAGE-DESIGN.md
 
 ---
@@ -412,14 +413,15 @@ pub struct OptimizedWAL {
     sync_policy: SyncPolicy,
 }
 
+/// 同步策略（见 02-ARCHITECTURE-OVERVIEW.md ADR-006）
 pub enum SyncPolicy {
-    /// 每次写入同步 (最安全，最慢)
+    /// 每次写入同步 (用于 Hard Confirmation，RPO=0)
     EveryWrite,
 
-    /// 批量同步 (平衡)
+    /// 批量同步 (用于 Soft Confirmation，低延迟优先)
     Batched { interval: Duration, max_size: usize },
 
-    /// 周期同步 (最快，风险)
+    /// 周期同步 (仅测试环境)
     Periodic { interval: Duration },
 }
 
@@ -1324,11 +1326,21 @@ rustflags = [
 
 ---
 
-## 文档历史 / Document History
+## 变更历史 / Change History
 
-| 版本 | 日期 | 作者 | 变更 |
-|-----|------|-----|------|
-| 0.1 | 2024-01 | DEX Team | 初稿 |
+| 版本 | 日期 | 变更内容 | 状态 |
+|-----|------|---------|------|
+| v1.0 | 2025-12-31 | 初始版本 | ✅ 有效 |
+| v1.1 | 2025-12-31 | SyncPolicy 引用 ADR-006 确认语义 | ✅ 有效 |
+
+### 待对齐事项 / Alignment Notes
+
+| 章节 | 状态 | 说明 |
+|-----|------|------|
+| 1. 性能目标 | ✅ 有效 | 与 01-REQUIREMENTS 指标口径表一致 |
+| 5.1 WAL 优化 | ✅ 有效 | 与 ADR-006 确认语义对齐 |
+| 2. 延迟分解 | ✅ 有效 | 50ms 预算分配与架构图一致 |
+| 10. 硬件建议 | ⚠️ 待验证 | 需性能测试确认硬件配置 |
 
 ---
 

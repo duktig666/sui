@@ -2,7 +2,8 @@
 # 永续合约概要设计 / Perpetual Contracts Overview Design
 
 > **文档状态 / Status**: 概要设计 / Overview Design (Phase 2)
-> **最后更新 / Last Updated**: 2024-01
+> **版本**: v1.0
+> **最后更新 / Last Updated**: 2025-12-31
 > **关联文档 / Related**: 05-MATCHING-ENGINE-DESIGN.md, 08-SPOT-OVERVIEW.md
 
 ---
@@ -701,11 +702,20 @@ pub struct InsuranceFundLedger { ... }
 
 ---
 
-## 文档历史 / Document History
+## 变更历史 / Change History
 
-| 版本 | 日期 | 作者 | 变更 |
-|-----|------|-----|------|
-| 0.1 | 2024-01 | DEX Team | 概要设计初稿 |
+| 版本 | 日期 | 变更内容 | 状态 |
+|-----|------|---------|------|
+| v1.0 | 2025-12-31 | 概要设计初始版本 | ⚠️ Phase 2 |
+
+### 待对齐事项 / Alignment Notes
+
+| 章节 | 状态 | 说明 |
+|-----|------|------|
+| 全文 | ⚠️ Phase 2 | 永续合约为 Phase 2 功能，概要设计待细化 |
+| 4. 资金费率 | ⚠️ 概要 | 公式已定义，参数待确认 |
+| 5. 清算机制 | ⚠️ 概要 | 清算引擎待详细设计 |
+| 6. 保险基金 | ⚠️ 概要 | ADL 机制待详细设计 |
 
 ---
 

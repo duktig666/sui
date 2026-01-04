@@ -1,7 +1,8 @@
 # DEX L1 Sequencer 设计 / Sequencer Design
 
-> **版本**: v1.0
+> **版本**: v1.2
 > **状态**: Draft
+> **最后更新**: 2025-12-31
 > **目标读者**: 技术评审 / 架构师
 
 ---
@@ -562,4 +563,275 @@ lazy_static! {
 
 ---
 
-*文档版本: v1.0 | 最后更新: 2025-01-01*
+## 11. 安全不变量与缓解措施 / Security Invariants & Mitigations
+
+> **关联文档**：本节补充 `02-ARCHITECTURE-OVERVIEW.md` 5.2 威胁建模章节，聚焦 Sequencer 特定安全问题。
+
+### 11.1 安全不变量 / Security Invariants
+
+| 不变量 ID | 描述 | 违反后果 | 验证机制 |
+|----------|------|---------|---------|
+| **SI-SEQ-001** | 序列号严格单调递增，无间隙 | 订单丢失/重排 | Validator 检测间隙 |
+| **SI-SEQ-002** | 同一 Epoch 内仅一个 Leader 有效 | 双花/冲突 | 2f+1 签名验证 |
+| **SI-SEQ-003** | 批次内订单顺序不可篡改 | MEV 抢跑 | 批次签名 + Merkle Root |
+| **SI-SEQ-004** | Leader 必须在 `max_batch_timeout` 内广播 | 审查攻击 | Validator 超时检测 |
+| **SI-SEQ-005** | 相同输入必须产生相同序列号 | 非确定性 | 确定性随机数种子 |
+
+### 11.2 Sequencer 作恶缓解 / Sequencer Misbehavior Mitigation
+
+#### 11.2.1 作恶行为分类 / Misbehavior Categories
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                 Sequencer Misbehavior Categories                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
+│  │  Censorship      │  │  Front-running   │  │  DoS Attack      │  │
+│  │  (审查攻击)       │  │  (抢跑攻击)       │  │  (拒绝服务)       │  │
+│  │                  │  │                  │  │                  │  │
+│  │  • 拒绝特定用户   │  │  • 重排订单      │  │  • 不广播批次    │  │
+│  │  • 延迟特定订单   │  │  • 插入自有订单  │  │  • 不响应心跳    │  │
+│  │  • 选择性丢弃     │  │  • 三明治攻击    │  │  • 产生无效批次  │  │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
+│                                                                      │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
+│  │  Equivocation    │  │  Sequence Gap    │  │  Stale Data      │  │
+│  │  (双重签名)       │  │  (序列号间隙)     │  │  (陈旧数据)       │  │
+│  │                  │  │                  │  │                  │  │
+│  │  • 同 seq 不同内容│  │  • 跳过序列号    │  │  • 旧状态响应    │  │
+│  │  • 分叉批次      │  │  • 创造间隙      │  │  • 错误余额      │  │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### 11.2.2 缓解机制 / Mitigation Mechanisms
+
+**1. 审查攻击缓解 (Censorship Resistance)**
+
+```rust
+/// 强制包含机制 / Forced Inclusion Mechanism
+pub struct ForcedInclusion {
+    /// 订单在 pending 队列的最大停留时间
+    max_pending_time: Duration, // 默认: 500ms
+    /// 超时订单强制进入下一批次
+    force_include_after_timeout: bool,
+}
+
+impl Sequencer {
+    /// Validators 检测审查行为
+    fn detect_censorship(&self, order: &Order) -> Option<CensorshipEvidence> {
+        let pending_since = self.pending_orders.get_timestamp(&order.id)?;
+        let elapsed = Instant::now() - pending_since;
+
+        if elapsed > self.config.max_pending_time {
+            // 订单被延迟超过阈值，产生证据
+            Some(CensorshipEvidence {
+                order_id: order.id,
+                pending_since,
+                elapsed,
+                batches_skipped: self.count_skipped_batches(&order.id),
+            })
+        } else {
+            None
+        }
+    }
+}
+```
+
+**2. 抢跑攻击缓解 (Front-running Prevention)**
+
+| 缓解策略 | 描述 | 延迟影响 | 实现复杂度 |
+|---------|------|---------|-----------|
+| **Commit-Reveal** | 订单先提交 Hash，再揭示内容 | +1 RTT (~50ms) | 中等 |
+| **时间锁订单** | 订单携带最早执行时间 | 无额外延迟 | 低 |
+| **批次密封** | 批次形成后不可修改 | 无额外延迟 | 低 |
+| **随机延迟** | Leader 不知道精确执行时间 | +随机 0-10ms | 低 |
+
+```rust
+/// 批次密封机制 / Batch Sealing
+pub struct SealedBatch {
+    /// 批次 ID
+    id: BatchId,
+    /// 订单 Merkle Root (密封后不可修改)
+    order_root: [u8; 32],
+    /// 密封时间戳
+    sealed_at: u64,
+    /// Leader 签名
+    leader_sig: Signature,
+}
+
+impl SealedBatch {
+    /// 验证批次完整性
+    pub fn verify(&self, orders: &[Order]) -> Result<(), BatchError> {
+        let computed_root = merkle_root(orders);
+        if computed_root != self.order_root {
+            return Err(BatchError::TamperedOrders);
+        }
+        Ok(())
+    }
+}
+```
+
+**3. 双重签名检测 (Equivocation Detection)**
+
+```rust
+/// 双重签名检测器 / Equivocation Detector
+pub struct EquivocationDetector {
+    /// 已见批次: (Epoch, SeqRange) -> BatchDigest
+    seen_batches: DashMap<(u64, SeqRange), BatchDigest>,
+}
+
+impl EquivocationDetector {
+    /// 检测双重签名
+    pub fn check_and_record(&self, batch: &SignedBatch) -> Result<(), EquivocationProof> {
+        let key = (batch.epoch, batch.seq_range.clone());
+
+        match self.seen_batches.entry(key) {
+            Entry::Occupied(entry) => {
+                if *entry.get() != batch.digest() {
+                    // 检测到双重签名！
+                    return Err(EquivocationProof {
+                        epoch: batch.epoch,
+                        seq_range: batch.seq_range.clone(),
+                        digest_a: *entry.get(),
+                        digest_b: batch.digest(),
+                        sig_a: entry.get().signature.clone(),
+                        sig_b: batch.signature.clone(),
+                    });
+                }
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(batch.digest());
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+**4. 序列号间隙检测 (Gap Detection)**
+
+```rust
+/// 间隙检测器 / Gap Detector
+pub struct GapDetector {
+    /// 期望的下一个序列号
+    expected_next: AtomicU64,
+    /// 已发现的间隙
+    gaps: DashMap<SeqRange, GapInfo>,
+}
+
+impl GapDetector {
+    /// 检测间隙
+    pub fn on_batch_received(&self, batch: &Batch) -> Option<GapAlert> {
+        let expected = self.expected_next.load(Ordering::SeqCst);
+        let batch_start = batch.seq_range.start;
+
+        if batch_start > expected {
+            // 发现间隙
+            let gap = SeqRange { start: expected, end: batch_start };
+            self.gaps.insert(gap.clone(), GapInfo {
+                detected_at: Instant::now(),
+                expected,
+                received: batch_start,
+            });
+
+            Some(GapAlert { gap, batch_id: batch.id })
+        } else {
+            self.expected_next.store(batch.seq_range.end, Ordering::SeqCst);
+            None
+        }
+    }
+}
+```
+
+### 11.3 故障 vs 作恶区分 / Distinguishing Faults from Attacks
+
+| 行为 | 可能原因 | 证据要求 | 响应措施 |
+|------|---------|---------|---------|
+| 心跳超时 | 网络分区 / 宕机 / 故意不响应 | 2f+1 观察到超时 | 触发 Leader 切换 |
+| 批次延迟 | 高负载 / 网络拥塞 / 审查 | 持续 N 个批次超时 | 降低信誉分 + 切换 |
+| 序列号间隙 | Bug / 存储故障 / 故意跳过 | Gap 证据 + 多验证者确认 | 立即切换 + Slash |
+| 双重签名 | **仅可能是故意攻击** | Equivocation Proof | 立即 Slash |
+
+### 11.4 惩罚机制 / Slashing Conditions
+
+```rust
+/// Slash 条件 / Slashing Conditions
+pub enum SlashableOffense {
+    /// 双重签名 (最严重)
+    Equivocation {
+        proof: EquivocationProof,
+        penalty_pct: u8, // 100% 全额 Slash
+    },
+    /// 持续审查
+    PersistentCensorship {
+        evidence: Vec<CensorshipEvidence>,
+        penalty_pct: u8, // 50% Slash
+    },
+    /// 故意间隙
+    IntentionalGap {
+        proof: GapProof,
+        penalty_pct: u8, // 30% Slash
+    },
+    /// 无效批次
+    InvalidBatch {
+        proof: InvalidBatchProof,
+        penalty_pct: u8, // 20% Slash
+    },
+}
+```
+
+### 11.5 安全监控指标 / Security Monitoring Metrics
+
+```rust
+// Sequencer 安全相关 Prometheus 指标
+lazy_static! {
+    /// 审查检测计数
+    pub static ref CENSORSHIP_DETECTIONS: IntCounter = register_int_counter!(
+        "dex_sequencer_censorship_detections_total",
+        "Number of potential censorship events detected"
+    ).unwrap();
+
+    /// 双重签名检测计数
+    pub static ref EQUIVOCATION_DETECTIONS: IntCounter = register_int_counter!(
+        "dex_sequencer_equivocation_detections_total",
+        "Number of equivocation events detected"
+    ).unwrap();
+
+    /// 序列号间隙计数
+    pub static ref GAP_DETECTIONS: IntCounter = register_int_counter!(
+        "dex_sequencer_gap_detections_total",
+        "Number of sequence gaps detected"
+    ).unwrap();
+
+    /// Leader 异常切换计数
+    pub static ref ABNORMAL_LEADER_SWITCHES: IntCounter = register_int_counter!(
+        "dex_sequencer_abnormal_leader_switches_total",
+        "Number of leader switches due to misbehavior"
+    ).unwrap();
+}
+```
+
+---
+
+## 变更历史 / Change History
+
+| 版本 | 日期 | 变更内容 | 状态 |
+|-----|------|---------|------|
+| v1.0 | 2025-12-31 | 初始版本 | ✅ 有效 |
+| v1.1 | 2025-12-31 | 添加 11. 安全不变量与缓解措施 | ✅ 有效 |
+| v1.2 | 2025-12-31 | 补充文档元数据 | ✅ 有效 |
+
+### 待对齐事项 / Alignment Notes
+
+| 章节 | 状态 | 说明 |
+|-----|------|------|
+| 11. 安全不变量 | ✅ 有效 | 与 02-ARCHITECTURE 5.2 互补 |
+| 6.2 确认机制 | ✅ 有效 | 引用 ADR-006 确认语义 |
+| 8.1 参数矩阵 | ⚠️ 待验证 | 生产环境需性能测试调优 |
+
+---
+
+*文档版本: v1.2 | 最后更新: 2025-12-31*
