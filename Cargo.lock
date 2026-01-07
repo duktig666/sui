@@ -2976,7 +2976,7 @@ dependencies = [
 
 [[package]]
 name = "consensus-framework"
-version = "1.63.0"
+version = "1.64.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3021,7 +3021,7 @@ dependencies = [
 
 [[package]]
 name = "consensus-study"
-version = "1.63.0"
+version = "1.64.0"
 dependencies = [
  "consensus-config",
  "consensus-core",
@@ -3638,7 +3638,7 @@ dependencies = [
 
 [[package]]
 name = "dag-visualizer"
-version = "1.63.0"
+version = "1.64.0"
 dependencies = [
  "clap",
  "consensus-study",
@@ -4001,7 +4001,7 @@ dependencies = [
 
 [[package]]
 name = "dex-rollup"
-version = "1.63.0"
+version = "1.64.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -13003,7 +13003,7 @@ checksum = "16e78919e05c9b8e123d435a4ad104b488ad1585631830e413830985c214086e"
 
 [[package]]
 name = "simple-token-chain"
-version = "1.63.0"
+version = "1.64.0"
 dependencies = [
  "anyhow",
  "async-trait",
