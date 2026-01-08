@@ -326,9 +326,9 @@ Vault → CLOB: 自动化做市订单
 
 ### 业务分析
 
-- [CLOB 业务分析](../business/clob_analyst.md)
-- [Perpetuals 业务分析](../business/perpetuals_analyst.md)
-- [Slinky Oracle 分析](../business/slinky_oracle.md)
+- [CLOB 业务分析](../analyst/clob_analyst.md)
+- [Perpetuals 业务分析](../analyst/perpetuals_analyst.md)
+- [Slinky Oracle 分析](../analyst/slinky_oracle.md)
 
 ### 代码仓库
 

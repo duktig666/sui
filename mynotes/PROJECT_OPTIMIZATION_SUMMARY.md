@@ -509,7 +509,7 @@ chmod +x .claude/skills/*
 
 ### 项目文档
 - [CLAUDE.md](../CLAUDE.md): 项目编码规范和配置
-- [mynotes/README_notes.md](README_notes.md): notes 文档阅读指南
+- [mynotes/README_notes.md](../notes/README_notes.md): notes 文档阅读指南
 - [.claude/skills/README.md](../.claude/skills/README.md): Skills 使用指南
 
 ### DEX 核心文档

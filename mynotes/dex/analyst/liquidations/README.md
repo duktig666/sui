@@ -8,7 +8,7 @@
 
 ## 📄 文档列表
 
-### 1️⃣ [清算机制详解](./liquidation_mechanism.md) ⭐核心
+### 1️⃣ [清算机制详解](liquidation_mechanism.md) ⭐核心
 
 **内容概要**:
 - ✅ 完整代码调用流程分析 (PrepareCheckState → FinalizeBlock)
@@ -28,7 +28,7 @@
 
 ---
 
-### 2️⃣ [去杠杆机制详解](./deleveraging_mechanism.md) ⭐核心
+### 2️⃣ [去杠杆机制详解](deleveraging_mechanism.md) ⭐核心
 
 **内容概要**:
 - ✅ 完整代码调用流程分析 (PrepareCheckState → DeleverageSubaccounts)
@@ -50,7 +50,7 @@
 
 ---
 
-### 3️⃣ [OrderFill 更新机制详解](./orderfill_update.md) ⭐技术细节
+### 3️⃣ [OrderFill 更新机制详解](orderfill_update.md) ⭐技术细节
 
 **内容概要**:
 - ✅ ABCI 阶段识别: OrderFill 在哪个阶段更新?
@@ -75,7 +75,7 @@
 
 ---
 
-### 4️⃣ [Hyperliquid 对比分析](./hyperliquid_comparison.md) ⭐行业对比
+### 4️⃣ [Hyperliquid 对比分析](hyperliquid_comparison.md) ⭐行业对比
 
 **内容概要**:
 - ✅ Hyperliquid 三层清算流程 (订单簿 → HLP → ADL)
@@ -103,47 +103,47 @@
 ### 按主题导航
 
 **清算机制**:
-- [清算触发条件](./liquidation_mechanism.md#2-清算触发条件)
-- [清算价格计算](./liquidation_mechanism.md#3-清算价格计算机制)
-- [保险基金机制](./liquidation_mechanism.md#4-保险基金机制)
-- [完整清算示例](./liquidation_mechanism.md#6-完整示例解析)
+- [清算触发条件](liquidation_mechanism.md#2-清算触发条件)
+- [清算价格计算](liquidation_mechanism.md#3-清算价格计算机制)
+- [保险基金机制](liquidation_mechanism.md#4-保险基金机制)
+- [完整清算示例](liquidation_mechanism.md#6-完整示例解析)
 
 **去杠杆机制**:
-- [触发条件分析](./deleveraging_mechanism.md#2-触发条件分析)
-- [价格计算机制](./deleveraging_mechanism.md#3-价格计算机制)
-- [对手方选择逻辑](./deleveraging_mechanism.md#4-对手方选择逻辑)
-- [社会化损失](./deleveraging_mechanism.md#5-社会化损失-socialized-loss)
+- [触发条件分析](deleveraging_mechanism.md#2-触发条件分析)
+- [价格计算机制](deleveraging_mechanism.md#3-价格计算机制)
+- [对手方选择逻辑](deleveraging_mechanism.md#4-对手方选择逻辑)
+- [社会化损失](deleveraging_mechanism.md#5-社会化损失-socialized-loss)
 
 **OrderFill 机制**:
-- [ABCI 阶段识别](./orderfill_update.md#1-abci-阶段识别-orderfill-在哪个阶段更新)
-- [数据结构详解](./orderfill_update.md#2-数据结构详解)
-- [更新时机详解](./orderfill_update.md#4-更新时机详解)
-- [清理机制详解](./orderfill_update.md#5-清理机制详解)
+- [ABCI 阶段识别](orderfill_update.md#1-abci-阶段识别-orderfill-在哪个阶段更新)
+- [数据结构详解](orderfill_update.md#2-数据结构详解)
+- [更新时机详解](orderfill_update.md#4-更新时机详解)
+- [清理机制详解](orderfill_update.md#5-清理机制详解)
 
 **对比分析**:
-- [Hyperliquid 清算机制](./hyperliquid_comparison.md#1-hyperliquid-清算机制详解)
-- [Hyperliquid ADL 机制](./hyperliquid_comparison.md#12-三层清算流程-three-tier-liquidation)
-- [对比总结表](./hyperliquid_comparison.md#3-hyperliquid-vs-hermes-对比总结)
-- [真实案例分析](./hyperliquid_comparison.md#5-真实案例分析-2025-年-hyperliquid-adl-事件)
+- [Hyperliquid 清算机制](hyperliquid_comparison.md#1-hyperliquid-清算机制详解)
+- [Hyperliquid ADL 机制](hyperliquid_comparison.md#12-三层清算流程-three-tier-liquidation)
+- [对比总结表](hyperliquid_comparison.md#3-hyperliquid-vs-hermes-对比总结)
+- [真实案例分析](hyperliquid_comparison.md#5-真实案例分析-2025-年-hyperliquid-adl-事件)
 
 ---
 
 ### 按角色导航
 
 **开发者**:
-1. 先阅读 [OrderFill 更新机制](./orderfill_update.md) 了解技术实现
-2. 再阅读 [清算机制](./liquidation_mechanism.md) 的代码调用流程部分
-3. 最后阅读 [去杠杆机制](./deleveraging_mechanism.md) 的代码调用流程部分
+1. 先阅读 [OrderFill 更新机制](orderfill_update.md) 了解技术实现
+2. 再阅读 [清算机制](liquidation_mechanism.md) 的代码调用流程部分
+3. 最后阅读 [去杠杆机制](deleveraging_mechanism.md) 的代码调用流程部分
 
 **产品经理/分析师**:
-1. 先阅读 [清算机制](./liquidation_mechanism.md) 的业务逻辑和示例
-2. 再阅读 [去杠杆机制](./deleveraging_mechanism.md) 的业务规则
-3. 最后阅读 [Hyperliquid 对比](./hyperliquid_comparison.md) 了解竞品
+1. 先阅读 [清算机制](liquidation_mechanism.md) 的业务逻辑和示例
+2. 再阅读 [去杠杆机制](deleveraging_mechanism.md) 的业务规则
+3. 最后阅读 [Hyperliquid 对比](hyperliquid_comparison.md) 了解竞品
 
 **风控人员**:
-1. 重点阅读 [清算机制](./liquidation_mechanism.md) 的保险基金部分
-2. 重点阅读 [去杠杆机制](./deleveraging_mechanism.md) 的社会化损失部分
-3. 参考 [Hyperliquid 对比](./hyperliquid_comparison.md) 的风险评估
+1. 重点阅读 [清算机制](liquidation_mechanism.md) 的保险基金部分
+2. 重点阅读 [去杠杆机制](deleveraging_mechanism.md) 的社会化损失部分
+3. 参考 [Hyperliquid 对比](hyperliquid_comparison.md) 的风险评估
 
 ---
 
@@ -285,7 +285,7 @@
 - **清算 (Liquidation)**: TNC < MMR,通过订单簿匹配平仓,保险基金吸收差价
 - **去杠杆 (Deleveraging)**: TNC < 0 或市场最终结算,强制匹配对手方,社会化损失
 
-**详见**: [去杠杆与清算的对比](./deleveraging_mechanism.md#6-去杠杆与清算的对比)
+**详见**: [去杠杆与清算的对比](deleveraging_mechanism.md#6-去杠杆与清算的对比)
 
 ---
 
@@ -293,7 +293,7 @@
 
 **答案**: **DeliverTx 阶段**,具体是处理 `MsgProposedOperations` 消息时。
 
-**详见**: [ABCI 阶段识别](./orderfill_update.md#1-abci-阶段识别-orderfill-在哪个阶段更新)
+**详见**: [ABCI 阶段识别](orderfill_update.md#1-abci-阶段识别-orderfill-在哪个阶段更新)
 
 ---
 
@@ -301,7 +301,7 @@
 
 **答案**: HLP (Hyperliquid Liquidity Provider) 是社区流动性提供者金库,类似保险基金,但由社区共同承担风险并分享清算利润。
 
-**详见**: [Hyperliquid HLP 机制](./hyperliquid_comparison.md#层级-2-hlp-保底清算-backstop-liquidation-via-hlp)
+**详见**: [Hyperliquid HLP 机制](hyperliquid_comparison.md#层级-2-hlp-保底清算-backstop-liquidation-via-hlp)
 
 ---
 
@@ -309,7 +309,7 @@
 
 **答案**: 当保险基金无法覆盖清算损失时,损失会分摊给对手方盈利账户,这部分损失称为社会化损失。
 
-**详见**: [社会化损失详解](./deleveraging_mechanism.md#5-社会化损失-socialized-loss)
+**详见**: [社会化损失详解](deleveraging_mechanism.md#5-社会化损失-socialized-loss)
 
 ---
 
@@ -317,7 +317,7 @@
 
 **答案**: 清算订单 (Liquidation Order) 是一次性订单,只能在账户可清算时放置,无法重放,因此不需要跟踪累计成交量。
 
-**详见**: [OrderFill FAQ](./orderfill_update.md#9-常见问题解答-faq)
+**详见**: [OrderFill FAQ](orderfill_update.md#9-常见问题解答-faq)
 
 ---
 
@@ -326,24 +326,24 @@
 ### 初学者路径 (3-5 小时)
 
 1. **第一步**: 阅读本 README 文档,了解整体结构 (15 分钟)
-2. **第二步**: 阅读 [清算机制](./liquidation_mechanism.md) 的"业务流程概述"和"完整示例" (1 小时)
-3. **第三步**: 阅读 [去杠杆机制](./deleveraging_mechanism.md) 的"触发条件"和"完整示例" (1 小时)
-4. **第四步**: 阅读 [Hyperliquid 对比](./hyperliquid_comparison.md) 的"对比总结表" (30 分钟)
+2. **第二步**: 阅读 [清算机制](liquidation_mechanism.md) 的"业务流程概述"和"完整示例" (1 小时)
+3. **第三步**: 阅读 [去杠杆机制](deleveraging_mechanism.md) 的"触发条件"和"完整示例" (1 小时)
+4. **第四步**: 阅读 [Hyperliquid 对比](hyperliquid_comparison.md) 的"对比总结表" (30 分钟)
 5. **第五步**: 回顾核心概念和公式 (30 分钟)
 
 ### 开发者路径 (5-8 小时)
 
-1. **第一步**: 阅读 [OrderFill 更新机制](./orderfill_update.md) 完整文档 (2 小时)
-2. **第二步**: 阅读 [清算机制](./liquidation_mechanism.md) 的"代码调用流程"部分 (2 小时)
-3. **第三步**: 阅读 [去杠杆机制](./deleveraging_mechanism.md) 的"代码调用流程"部分 (2 小时)
+1. **第一步**: 阅读 [OrderFill 更新机制](orderfill_update.md) 完整文档 (2 小时)
+2. **第二步**: 阅读 [清算机制](liquidation_mechanism.md) 的"代码调用流程"部分 (2 小时)
+3. **第三步**: 阅读 [去杠杆机制](deleveraging_mechanism.md) 的"代码调用流程"部分 (2 小时)
 4. **第四步**: 查看相关代码文件,对照文档理解实现 (2 小时)
 
 ### 产品/架构师路径 (4-6 小时)
 
 1. **第一步**: 阅读本 README 文档和核心概念 (30 分钟)
-2. **第二步**: 阅读 [清算机制](./liquidation_mechanism.md) 完整文档 (1.5 小时)
-3. **第三步**: 阅读 [去杠杆机制](./deleveraging_mechanism.md) 完整文档 (1.5 小时)
-4. **第四步**: 重点阅读 [Hyperliquid 对比](./hyperliquid_comparison.md) 完整文档 (2 小时)
+2. **第二步**: 阅读 [清算机制](liquidation_mechanism.md) 完整文档 (1.5 小时)
+3. **第三步**: 阅读 [去杠杆机制](deleveraging_mechanism.md) 完整文档 (1.5 小时)
+4. **第四步**: 重点阅读 [Hyperliquid 对比](hyperliquid_comparison.md) 完整文档 (2 小时)
 5. **第五步**: 思考优化方向和改进建议 (1 小时)
 
 ---

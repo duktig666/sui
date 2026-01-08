@@ -465,7 +465,7 @@ Crossing 条件: newDelta² × 1,000,000 <= oldDelta × tickSizePpm
 - [Prices 模块数据结构](../data_structure/prices.md)
 
 ### 技术分析文档
-- [Slinky Oracle 集成分析](../business/slinky_oracle.md)
+- [Slinky Oracle 集成分析](../analyst/slinky_oracle.md)
 
 ---
 

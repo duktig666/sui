@@ -1088,7 +1088,7 @@ Maintenance_Margin_Ppm = Base_IMF × MaintenanceFractionPpm / 1,000,000
 - [Perpetuals 模块数据结构](../data_structure/perpetuals.md)
 
 ### 技术分析文档
-- [Perpetuals 模块技术分析](../business/perpetuals_analyst.md)
+- [Perpetuals 模块技术分析](../analyst/perpetuals_analyst.md)
 
 ---
 

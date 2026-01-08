@@ -1441,7 +1441,7 @@ OrderQuota = GetQuotaForEquityTier(AccountEquity)
 
 ### 技术分析文档
 
-- [CLOB 模块技术分析](../business/clob_analyst.md)
+- [CLOB 模块技术分析](../analyst/clob_analyst.md)
 
 ---
 
