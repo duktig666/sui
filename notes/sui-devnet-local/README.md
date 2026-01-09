@@ -1,8 +1,14 @@
-# Sui 私链 / Fork Chain 指导手册（本机多验证者 + 最小观测）
+# Sui 本地开发网络 (sui-devnet-local)
 
-本文把“研究笔记”升级为**可复制执行的操作手册**：在一台机器上启动一条“自己的 Sui 链”（4 个 validator + 1 个 fullnode + faucet），并用 **日志 / RPC / Prometheus** 观测其运行。
+> **定位**：零源码修改，仅用于本地测试和开发环境搭建。如需研究 Sui 源码级修改，请参考 [`triton-network`](../triton-network/) 项目。
 
-> 说明：这不是从主网/测试网状态“真分叉”（state fork），而是用自定义 genesis 启一条独立链（最适合做私链/开发链/验证运维流程）。
+本手册指导如何在本机搭建 Sui 开发测试网络（4 个 validator + 1 个 fullnode + faucet），并用 **日志 / RPC / Prometheus** 观测其运行。
+
+**适用场景**：
+- 本地开发和测试 Move 合约
+- 多验证者网络实验
+- 运维流程验证
+- 不涉及任何 Sui 源码修改
 
 ## 你将得到什么
 
@@ -257,23 +263,4 @@ docker compose up -d
 - `sui start`/参数校验/默认端口：`crates/sui/src/sui_commands.rs`
 - 节点默认端口（RPC 9000、metrics 9184）：`crates/sui-config/src/node.rs`
 - OpenRPC 方法名（用于 curl 校验）：`crates/sui-open-rpc/spec/openrpc.json`
-
----
-
-# 研究笔记（保留）
-
-本目录也用于研究如何成功运行一个 Sui 的 fork 链（分叉链）。
-
-## 后续研究目标
-
-- 理解 Sui fork 链的概念和实现方式
-- 研究多节点网络的配置和连接（跨机器）
-- 探索从主链分叉出独立链的方法（state fork）
-
-## 待办事项
-
-- [ ] 深入研究 `GenesisConfig` 结构
-- [ ] 研究 `NetworkConfig` 和节点配置
-- [ ] 探索自定义协议参数的方法
-- [ ] 研究如何持久化 fork 链状态
 
