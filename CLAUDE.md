@@ -10,17 +10,6 @@
 - ✅ **注释使用中文**: 业务逻辑注释、复杂算法解释等使用中文,便于团队理解
 - ✅ **回答使用中文**: Claude Code 的回答、解释、分析等使用中文
 
-**示例**:
-```rust
-// 订单撮合引擎 - 价格时间优先算法
-pub struct MatchingEngine {
-    // 买单队列 - 按价格从高到低排序
-    bid_orders: BTreeMap<Price, OrderQueue>,
-    // 卖单队列 - 按价格从低到高排序
-    ask_orders: BTreeMap<Price, OrderQueue>,
-}
-```
-
 ## 项目定位与研究导向 / Project Positioning
 
 ### 核心定位
@@ -35,7 +24,7 @@ pub struct MatchingEngine {
 - **主要语言**: Rust
 - **区块链平台**: Sui (Move VM)
 - **目标系统**: 高性能去中心化交易所 (DEX)
-- **参考对标**: Hyperliquid、dYdX v4
+- **参考对标**: Hyperliquid
 
 ### 文档结构
 ```
@@ -52,164 +41,6 @@ sui/
 │   ├── analysis/       # analyst 角色分析结果
 │   ├── design/         # architect 角色设计输出
 │   └── plan/           # 项目计划与思考
-└── protocol/           # 实际代码实现
-```
-
-## Crate-specific CLAUDE.md files
-Always consult CLAUDE.md files in sub-crates. Instructions in local CLAUDE.md files override instructions
-in this file when they are in conflict.
-
-## Individual Preferences
-Individual preferences supersede and extend project preferences. If a `CLAUDE.local.md` file exists in the repository root, follow those instructions in addition to this file.
-
-## 研究工作流程 / Research Workflow
-
-### 分析与调研流程
-当进行技术调研和分析时,推荐使用以下三个 AI 角色 (定义在 `.claude/agents/`):
-
-1. **analyst** - 业务分析师
-   - 专注: DEX 业务分析、高频交易系统、区块链和 Sui 调研
-   - 输出: 需求分析、业务流程、性能指标分析
-   - 使用时机: 需要理解业务逻辑、分析系统行为、性能评估时
-
-2. **architect** - 系统架构师
-   - 专注: 系统架构设计、模块边界、可扩展性方案
-   - 输出: 架构设计文档、技术方案选型、重构计划
-   - 使用时机: 需要设计系统架构、评估技术方案、规划重构时
-
-3. **engineer** - 开发工程师
-   - 专注: Rust/Move 代码实现、DEX 功能开发
-   - 输出: 代码实现、Bug 修复、功能实现
-   - 使用时机: 需要编写代码、修复问题、实现功能时
-
-### 推荐工作流
-```
-需求 → analyst 分析 → architect 设计 → engineer 实现 → 测试验证
-         ↓               ↓               ↓
-    mynotes/analysis  mynotes/design   protocol/
-```
-
-## DEX 领域知识 / DEX Domain Knowledge
-
-### 核心概念
-- **订单簿 (Order Book)**: 中央限价订单簿 (CLOB),价格-时间优先匹配
-- **永续合约 (Perpetuals)**: 无到期日的合约交易,通过资金费率锚定现货价格
-- **资金费率 (Funding Rate)**: 多空之间定期支付的费用,用于平衡合约价格与现货价格
-- **保证金 (Margin)**: 初始保证金 (IMR)、维持保证金 (MMR)、跨仓/逐仓模式
-- **清算 (Liquidation)**: 保证金不足时强制平仓机制
-- **MEV 保护**: 防止矿工可提取价值攻击的机制
-- **自动做市 (AMM vs Vault)**: Megavault 为订单簿提供流动性
-
-### 关键文档参考
-- **DEX L1 设计**: `notes/dex_l1/DEX_L1_DESIGN_SUMMARY.md` - 完整的 DEX L1 架构设计
-- **PRD 文档**: `mynotes/dex/prd/README.md` - 7 个核心模块的产品需求
-- **数据结构**: `mynotes/dex/data_structure/README.md` - 完整的数据结构文档
-- **Sui 架构**: `notes/SUI_ARCHITECTURE_REPORT.md` - Sui 架构分析报告
-
-### 性能目标
-根据 `notes/dex_l1/DEX_L1_DESIGN_SUMMARY.md`,目标性能指标:
-- 端到端延迟 (P99): < 50ms
-- 撮合吞吐量 (TPS): ≥ 200,000
-- 单次撮合耗时: < 10μs
-- 软确认延迟: < 50ms
-- 硬确认延迟: < 100ms
-
-## Documentation and Research
-
-### Notes Directory
-
-The `notes/` directory contains technical analysis and research documentation about the Sui codebase:
-
-- **Purpose**: Deep-dive analysis of original code implementation, architecture decisions, and performance characteristics
-- **Content**: Markdown documents analyzing specific subsystems, comparing design alternatives, and documenting research findings
-- **Audience**: Developers and researchers seeking to understand Sui's internal mechanisms
-- **Style**: Follows the objectivity principles outlined in this file - distinguishing facts from analysis, technical limitations from design choices, and including code evidence
-
-Examples of notes documentation:
-- `SUI_TRANSACTION_VERIFICATION_MECHANISM.md` - Analysis of transaction verification architecture
-- `SUI_CERTIFICATE_SEPARATION_ANALYSIS.md` - Design analysis of certificate separation
-- `LLM_OBJECTIVITY_ANALYSIS_AND_SOLUTIONS.md` - Guidelines for objective technical analysis
-
-When creating new analysis documents in `notes/`, follow the "Technical Analysis and Documentation Objectivity" guidelines below.
-
-## Essential Development Commands
-
-### Building and Installation
-
-```bash
-# Build a specific crate (generally don't need release build for development)
-cargo build -p sui-core
-
-# Check code without building (faster, preferred for iteration)
-cargo check
-
-# Build with specific profile
-cargo build --profile simulator  # for simulation tests
-```
-
-### Testing
-
-```bash
-# Run simulation tests (MUST use cargo simtest to avoid false negatives)
-cargo simtest -p sui-e2e-tests
-
-# Run Rust unit tests (skip simulation tests to avoid false negatives with nextest)
-SUI_SKIP_SIMTESTS=1 cargo nextest run
-
-# Run tests for specific packages (faster iteration)
-SUI_SKIP_SIMTESTS=1 cargo nextest run -p sui-types -p sui-core
-
-# Run only library tests (skip integration tests for faster feedback)
-SUI_SKIP_SIMTESTS=1 cargo nextest run --lib
-
-# Run a single test by name
-SUI_SKIP_SIMTESTS=1 cargo nextest run test_name
-```
-
-**Critical Testing Notes:**
-- **Simulation tests** must use `cargo simtest`, NOT `cargo test` or `cargo nextest` - they will produce false negatives otherwise
-- Set timeout limits to **at least 10 minutes** when compiling or running tests due to large codebase size
-- Use `-p` flag to select specific packages for faster iteration
-- Consult crate-specific CLAUDE.md files for which tests to run when changing files in those crates
-- When changing Move framework code, see "Framework Changes" section below
-
-### Move Framework Changes
-
-When modifying Move code in `crates/sui-framework/packages/`:
-
-```bash
-# Update framework snapshots after Move code changes (from repository root)
-./scripts/update_all_snapshots.sh
-
-# Rebuild framework and update documentation (from crates/sui-framework/)
-UPDATE=1 cargo nextest run build_system_packages
-```
-
-**Important**: Framework snapshot updates require `cargo-insta`. Install with: `cargo install cargo-insta`
-
-### Linting and Formatting
-
-```bash
-# Format and lint all Rust & Move code (run before commit)
-./scripts/lint.sh
-
-# Individual linting commands:
-cargo fmt --all                    # Format Rust code
-cargo xclippy                      # Run clippy with project lints
-cargo xclippy -D warnings          # Treat warnings as errors
-cargo xlint                        # Run additional project-specific lints
-```
-
-**Known Issues:**
-- `cargo xclippy` does not recognize the `-p` option for package selection
-- `cargo xlint` runs custom lints defined in the `crates/x` package
-
-## High-Level Architecture
-
-### Core Components Structure
-
-```
-sui/
 ├── crates/                   # Main Rust crates
 │   ├── sui-core/             # Core blockchain logic
 │   ├── sui-node/             # Validator node implementation
@@ -223,6 +54,33 @@ sui/
 ├── apps/                     # Frontend applications
 └── external-crates/          # Move compiler and VM
 ```
+
+## Crate-specific CLAUDE.md files
+Always consult CLAUDE.md files in sub-crates. Instructions in local CLAUDE.md files override instructions
+in this file when they are in conflict.
+
+## Individual Preferences
+Individual preferences supersede and extend project preferences. If a `CLAUDE.local.md` file exists in the repository root, follow those instructions in addition to this file.
+
+## Documentation and Research
+
+### Notes Directory
+
+The `notes/` and `mynotes/` directory contains technical analysis and research documentation about the Sui codebase:
+
+- **Purpose**: Deep-dive analysis of original code implementation, architecture decisions, and performance characteristics
+- **Content**: Markdown documents analyzing specific subsystems, comparing design alternatives, and documenting research findings
+- **Audience**: Developers and researchers seeking to understand Sui's internal mechanisms
+- **Style**: Follows the objectivity principles outlined in this file - distinguishing facts from analysis, technical limitations from design choices, and including code evidence
+
+Examples of notes documentation:
+- `SUI_TRANSACTION_VERIFICATION_MECHANISM.md` - Analysis of transaction verification architecture
+- `SUI_CERTIFICATE_SEPARATION_ANALYSIS.md` - Design analysis of certificate separation
+- `LLM_OBJECTIVITY_ANALYSIS_AND_SOLUTIONS.md` - Guidelines for objective technical analysis
+
+When creating new analysis documents in `notes/` and `mynotes/` , follow the "Technical Analysis and Documentation Objectivity" guidelines below.
+
+## High-Level Architecture
 
 ### Key Architectural Patterns
 
@@ -261,129 +119,6 @@ sui/
    - Move VM executes smart contracts with gas metering
    - Parallel execution for non-conflicting transactions
    - Gas accounting happens during execution
-
-### Important Crate Relationships
-
-**Core Blockchain Crates:**
-- `sui-core` - Core blockchain logic, transaction orchestration
-- `sui-node` - Validator and fullnode implementation
-- `sui-types` - Fundamental type definitions used across the codebase
-- `sui-storage` - Persistent storage abstractions and implementations
-- `sui-config` - Configuration management for nodes and validators
-
-**API & RPC Crates:**
-- `sui-json-rpc` - JSON-RPC API server (legacy)
-- `sui-graphql-rpc` - GraphQL API server (preferred)
-- `sui-rpc-api` - Common RPC API traits and types
-
-**Indexer Crates:**
-- `sui-indexer` - Legacy indexer
-- `sui-indexer-alt-*` - New indexer architecture with modular design
-
-**Framework & Move:**
-- `sui-framework` - Move system packages and stdlib
-- `sui-move-build` - Move package compilation
-- `sui-adapter-transactional-tests` - Transactional test framework for Move
-
-**Testing & Development:**
-- `sui-test-validator` - Local test validator
-- `sui-e2e-tests` - End-to-end integration tests
-- `sui-simulator` - Deterministic simulation testing
-- `test-cluster` - Test cluster management
-
-### Critical Development Notes
-
-**Testing Requirements:**
-- Always run tests before submitting changes
-- Framework changes require snapshot updates via `./scripts/update_all_snapshots.sh`
-- Use simulation tests (`cargo simtest`) for concurrency-sensitive code
-- For async tests, use `#[tokio::test]`, not `#[test]`
-
-**CRITICAL - Final Development Steps:**
-- **ALWAYS run `cargo xclippy` after finishing development** to ensure code passes all linting checks
-- **NEVER disable or ignore tests** - all tests must pass and be enabled
-- **NEVER use `#[allow(dead_code)]`, `#[allow(unused)]`, or similar linting suppressions** - fix the underlying issues instead
-- Run `./scripts/lint.sh` before committing to format and lint all code
-
-**Execution Layer Access:**
-- Authority code (validators/fullnodes) MUST access execution via `sui-execution` crate
-- Direct dependencies on execution version crates can cause forks
-- CLI tools and other non-authority code can directly use `latest` version
-
-### **Comment Writing Guidelines**
-
-**Do NOT comment the obvious** - comments should not simply repeat what the code does.
-**When to comment**:
-- Non-obvious algorithms or business logic
-- Temporary exclusions, timeouts, or thresholds and their reasoning  
-- Complex calculations where the "why" isn't immediately clear
-- Subtle race conditions or threading considerations
-- Assumptions about external state or preconditions
-
-**When NOT to comment**:
-- Simple variable assignments
-- Standard library usage
-- Self-descriptive function calls
-- Basic control flow (if/for/while)
-
----
-
-## Technical Analysis and Documentation Objectivity
-
-When analyzing code, writing technical documentation, or explaining design decisions, follow these rules to ensure objectivity and avoid common biases.
-
-### Core Principles
-
-#### 1. Distinguish "What Is" from "Why"
-- ✅ First state facts (what the code does), then analyze reasons (why it does that)
-- ❌ Never mix explanation into fact statements
-- Example:
-  - ✅ "The code performs two network round trips (authority.rs:1150). This is a design choice to enable fork detection."
-  - ❌ "The code performs two network round trips to ensure safety."
-
-#### 2. Distinguish "Technical Limitations" from "Design Choices"
-- **Technical Limitation**: Physically or logically impossible to implement differently
-- **Design Choice**: Could be implemented differently but deliberately chosen not to
-- ✅ Always explicitly label which category each conclusion falls into
-- ❌ Never describe a "design choice" as a "technical limitation"
-- Example:
-  - ✅ "Shared objects require consensus ordering before execution (technical limitation: different orders yield different results)"
-  - ✅ "Owned objects use two-phase protocol (design choice: could merge phases but Sui prioritizes fork detection)"
-  - ❌ "Two-phase protocol is necessary for safety" (without specifying which type of necessity)
-
-#### 3. Actively Seek Alternative Approaches
-- ✅ For any design, always ask: "Could this be implemented differently?"
-- ✅ List at least one alternative approach, even if not currently used
-- ✅ Explain why alternatives were not chosen (with code evidence)
-- ❌ Never assume "current implementation = only possible implementation"
-- Example:
-  - ✅ "Current: two phases. Alternative: validators could execute and return (signature, effects) in one round trip. Sui chose two phases to avoid silent state corruption (effects_certifier.rs:555 shows ForkedExecution is non-retriable)."
-  - ❌ "The system must use two phases."
-
-#### 4. Acknowledge Tradeoffs, Not "Optimality"
-- ✅ State: "Approach A has cost X and benefit Y; Approach B has cost M and benefit N"
-- ❌ Never say: "Approach A is better/optimal/superior"
-- ✅ Present tradeoffs neutrally, let readers decide
-- Example:
-  - ✅ "Two-phase design: Cost = two network round trips, Benefit = detectable state inconsistency. One-phase alternative: Cost = potential silent corruption, Benefit = one round trip."
-  - ❌ "Two-phase design is better because it's safer."
-
-#### 5. All Conclusions Must Have Code Evidence
-- ✅ Cite specific file names and line numbers: `file.rs:123-145`
-- ✅ If inferring, explicitly label as "inference" or "likely"
-- ❌ Never use "obviously", "necessarily", "clearly" to hide lack of evidence
-- Example:
-  - ✅ "ForkedExecution is non-retriable (transaction_driver/error.rs:93-97)"
-  - ❌ "The system obviously can't handle forks automatically"
-
-#### 6. Question Implicit Assumptions
-- ✅ If asked "Why X?", first verify whether "X is true"
-- ✅ If the question contains implicit assumptions, state them explicitly
-- ❌ Never directly accept question premises without verification
-- Example:
-  - User: "Why can't CertifiedTransaction and CertifiedEffects be merged?"
-  - ✅ "First, let's verify: Can they be merged? For Owned Objects: yes, theoretically. For Shared Objects: no, due to ordering requirements."
-  - ❌ "They can't be merged because..." (accepts the premise)
 
 ### Mandatory Verification Checklist
 
@@ -509,4 +244,4 @@ Sui chose the former.
 
 ---
 
-**Reference**: For detailed analysis of LLM objectivity challenges and solutions, see `notes/LLM_OBJECTIVITY_ANALYSIS_AND_SOLUTIONS.md`
+Reference: For detailed analysis of LLM objectivity challenges and solutions, see notes/LLM_OBJECTIVITY_ANALYSIS_AND_SOLUTIONS.md

@@ -1,3 +1,8 @@
+重点问题：
+
+1. DEX执行层如何落地？
+
+
 针对一些问题思考：
 
 1. ✅ 实现高TPS、低时延的DEX，哪些Sui的机制可以复用？
@@ -5,8 +10,8 @@
 3. ✅ Tonic/Anemo Network - 验证者 P2P 通信，是否基于此实现主节点（或主节点轮换）定序的功能之一：从节点请求/tx同步给主节点。
 4. 依赖Sui开发最小化的DEX应用链，直接启动Sui很庞大，可能影响性能，是否可以进行功能裁剪。可以从Fork SUI作为SDK+DEX方式是否可行。
 5. 是否要兼容ABCI
-6. 开发Demo - 验证DEX Precompile可以过滤dex交易到CustomEngine执行
-7. 开发Demo - 实现从节点将请求/tx同步给主节点执行。实现从节点接收请求主节点执行的功能（主节点定序）。
+6. ❌开发Demo - 验证DEX Precompile可以过滤dex交易到CustomEngine执行
+7.
 
 复用sui的一些结论：
 
