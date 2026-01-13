@@ -1,0 +1,76 @@
+graph TB
+    %% 应用层
+    subgraph APP["应用层 Application Layer"]
+        A1[sui-sdk<br/>Rust SDK]
+        A2[sui-framework<br/>Move 合约框架]
+        A3[Frontend Apps<br/>前端应用]
+    end
+
+    %% 服务层
+    subgraph SVC["服务层 Service Layer"]
+        S1[sui-node<br/>验证者/全节点]
+        S2[sui-json-rpc<br/>JSON-RPC API]
+        S3[sui-graphql-rpc<br/>GraphQL API]
+        S4[sui-indexer-alt<br/>数据索引器]
+    end
+
+    %% 核心协议层
+    subgraph PROTO["核心协议层 Protocol Layer"]
+        P1[consensus-core<br/>Mysticeti 共识]
+        P2[sui-core<br/>交易验证与调度]
+        P3[sui-execution<br/>Move VM 执行]
+        P4[sui-storage<br/>存储抽象]
+    end
+
+    %% 基础设施层
+    subgraph INFRA["基础设施层 Infrastructure Layer"]
+        I1[sui-types<br/>核心类型定义]
+        I2[mysten-network<br/>P2P 网络]
+        I3[typed-store<br/>RocksDB 封装]
+        I4[sui-crypto<br/>加密原语]
+    end
+
+    %% 应用层到服务层
+    A1 --> S2
+    A2 --> S1
+    A3 --> S3
+
+    %% 服务层到协议层
+    S1 --> P1
+    S1 --> P2
+    S2 --> P2
+    S2 --> P4
+    S3 --> P4
+    S4 --> P4
+
+    %% 协议层内部
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+
+    %% 协议层到基础设施层
+    P1 --> I1
+    P1 --> I2
+    P2 --> I1
+    P2 --> I4
+    P3 --> I1
+    P4 --> I3
+
+    %% 样式定义
+    classDef appStyle fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
+    classDef svcStyle fill:#fff4e1,stroke:#f57c00,stroke-width:2px
+    classDef protoStyle fill:#ffe1e1,stroke:#d32f2f,stroke-width:2px
+    classDef infraStyle fill:#e1ffe1,stroke:#388e3c,stroke-width:2px
+
+    class A1,A2,A3 appStyle
+    class S1,S2,S3,S4 svcStyle
+    class P1,P2,P3,P4 protoStyle
+    class I1,I2,I3,I4 infraStyle
+
+    %% 图例说明
+    subgraph LEGEND["图例"]
+        L1[应用层: 用户交互]:::appStyle
+        L2[服务层: 接口服务]:::svcStyle
+        L3[协议层: 核心逻辑]:::protoStyle
+        L4[基础设施: 底层支撑]:::infraStyle
+    end

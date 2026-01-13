@@ -1,0 +1,5269 @@
+{
+  "tree-sitter-move": {
+    "path": "external-crates/move/tooling/tree-sitter",
+    "description": "move grammar for the tree-sitter parsing library",
+    "deps": [],
+    "bin": false,
+    "entry": null,
+    "top_modules": []
+  },
+  "invalid-mutations": {
+    "path": "external-crates/move/crates/invalid-mutations",
+    "description": "Diem invalid mutations",
+    "deps": [
+      "move-binary-format",
+      "move-core-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bounds",
+      "helpers",
+      "signature"
+    ]
+  },
+  "move-bytecode-verifier": {
+    "path": "external-crates/move/crates/move-bytecode-verifier",
+    "description": "Move bytecode verifier",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-abstract-stack",
+      "move-binary-format",
+      "move-borrow-graph",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-regex-borrow-graph",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "ability_cache",
+      "ability_field_requirements",
+      "absint",
+      "check_duplication",
+      "code_unit_verifier",
+      "constants",
+      "control_flow",
+      "control_flow_v5",
+      "cyclic_dependencies",
+      "data_defs",
+      "dependencies",
+      "friends",
+      "instantiation_loops",
+      "instruction_consistency",
+      "limits",
+      "loop_summary",
+      "script_signature",
+      "signature",
+      "verifier",
+      "acquires_list_verifier",
+      "locals_safety",
+      "reference_safety",
+      "regex_reference_safety",
+      "regression_tests",
+      "stack_usage_verifier",
+      "type_safety"
+    ]
+  },
+  "module-generation": {
+    "path": "external-crates/move/crates/module-generation",
+    "description": "Diem binary module generation",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-core-types",
+      "move-ir-to-bytecode",
+      "move-ir-types",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "generator",
+      "options",
+      "padding",
+      "utils"
+    ]
+  },
+  "move-docgen": {
+    "path": "external-crates/move/crates/move-docgen",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-types",
+      "move-model-2",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "code_writer",
+      "docgen"
+    ]
+  },
+  "move-package-alt": {
+    "path": "external-crates/move/crates/move-package-alt",
+    "description": "",
+    "deps": [
+      "jsonrpc",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-symbol-pool"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "cli",
+      "compatibility",
+      "dependency",
+      "errors",
+      "flavor",
+      "git",
+      "graph",
+      "package",
+      "schema",
+      "test_utils"
+    ]
+  },
+  "move-stdlib": {
+    "path": "external-crates/move/crates/move-stdlib",
+    "description": "Diem stdlib",
+    "deps": [
+      "move-binary-format",
+      "move-cli",
+      "move-command-line-common",
+      "move-core-types",
+      "move-docgen",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-stdlib-natives",
+      "move-unit-test",
+      "move-vm-runtime"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "tests",
+      "utils"
+    ]
+  },
+  "move-unit-test": {
+    "path": "external-crates/move/crates/move-unit-test",
+    "description": "Unit testing framework for Move code",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-types",
+      "move-model",
+      "move-stdlib",
+      "move-stdlib-natives",
+      "move-symbol-pool",
+      "move-trace-format",
+      "move-vm-config",
+      "move-vm-profiler",
+      "move-vm-runtime",
+      "move-vm-test-utils",
+      "move-vm-types"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "cargo_runner",
+      "extensions",
+      "test_reporter",
+      "test_runner"
+    ]
+  },
+  "move-transactional-test-runner": {
+    "path": "external-crates/move/crates/move-transactional-test-runner",
+    "description": "Transactional testing framework for Move",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-cli",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-compiler",
+      "move-ir-types",
+      "move-stdlib",
+      "move-stdlib-natives",
+      "move-symbol-pool",
+      "move-vm-config",
+      "move-vm-runtime",
+      "move-vm-test-utils",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "framework",
+      "tasks",
+      "vm_test_harness"
+    ]
+  },
+  "move-binary-format": {
+    "path": "external-crates/move/crates/move-binary-format",
+    "description": "Move Binary Format",
+    "deps": [
+      "enum-compat-util",
+      "move-abstract-interpreter",
+      "move-core-types",
+      "move-proc-macros"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "binary_config",
+      "check_bounds",
+      "compatibility",
+      "compatibility_mode",
+      "errors",
+      "constant",
+      "deserializer",
+      "file_format",
+      "file_format_common",
+      "internals",
+      "normalized",
+      "proptest_types",
+      "serializer",
+      "inclusion_mode",
+      "unit_tests"
+    ]
+  },
+  "move-bytecode-verifier-meter": {
+    "path": "external-crates/move/crates/move-bytecode-verifier-meter",
+    "description": "Traits for metering the bytecode verifier",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bound",
+      "dummy"
+    ]
+  },
+  "move-decompiler": {
+    "path": "external-crates/move/crates/move-decompiler",
+    "description": "",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-command-line-common",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-types",
+      "move-model",
+      "move-model-2",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-stackless-bytecode",
+      "move-stackless-bytecode-2",
+      "move-stdlib",
+      "move-symbol-pool",
+      "move-vm-runtime"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "ast",
+      "refinement",
+      "structuring",
+      "config",
+      "pretty_printer",
+      "testing",
+      "translate"
+    ]
+  },
+  "move-bytecode-viewer": {
+    "path": "external-crates/move/crates/move-bytecode-viewer",
+    "description": "Explore Move bytecode and how the source code compiles to it",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-disassembler"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bytecode_viewer",
+      "interfaces",
+      "source_viewer",
+      "tui",
+      "viewer"
+    ]
+  },
+  "move-command-line-common": {
+    "path": "external-crates/move/crates/move-command-line-common",
+    "description": "Move shared command line and file tools",
+    "deps": [
+      "move-binary-format",
+      "move-core-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "character_sets",
+      "display",
+      "env",
+      "error_bitset",
+      "files",
+      "interactive",
+      "testing"
+    ]
+  },
+  "move-package-alt-compilation": {
+    "path": "external-crates/move/crates/move-package-alt-compilation",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-bytecode-utils",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-disassembler",
+      "move-docgen",
+      "move-model-2",
+      "move-package-alt",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "build_config",
+      "build_plan",
+      "compilation",
+      "compiled_package",
+      "documentation",
+      "layout",
+      "lint_flag",
+      "migrate",
+      "model_builder",
+      "on_disk_package",
+      "shared",
+      "source_discovery"
+    ]
+  },
+  "move-vm-types": {
+    "path": "external-crates/move/crates/move-vm-types",
+    "description": "Types for Move VM",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-vm-profiler"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "data_store",
+      "gas",
+      "loaded_data",
+      "natives",
+      "values",
+      "views",
+      "unit_tests"
+    ]
+  },
+  "bytecode-verifier-libfuzzer": {
+    "path": "external-crates/move/crates/bytecode-verifier-libfuzzer",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-core-types"
+    ],
+    "bin": true,
+    "entry": null,
+    "top_modules": []
+  },
+  "move-abstract-stack": {
+    "path": "external-crates/move/crates/move-abstract-stack",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "unit_tests"
+    ]
+  },
+  "bytecode-interpreter-crypto": {
+    "path": "external-crates/move/crates/bytecode-interpreter-crypto",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "move-docgen-tests": {
+    "path": "external-crates/move/crates/move-docgen-tests",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-docgen",
+      "move-ir-types",
+      "move-model-2",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "move-vm-runtime": {
+    "path": "external-crates/move/crates/move-vm-runtime",
+    "description": "Core Move execution logic",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-compiler",
+      "move-trace-format",
+      "move-vm-config",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "data_cache",
+      "interpreter",
+      "loader",
+      "logging",
+      "move_vm",
+      "native_extensions",
+      "native_functions",
+      "runtime",
+      "session",
+      "tracing",
+      "tracing2",
+      "debug",
+      "unit_tests"
+    ]
+  },
+  "move-stackless-bytecode-2": {
+    "path": "external-crates/move/crates/move-stackless-bytecode-2",
+    "description": "",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-command-line-common",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-types",
+      "move-model",
+      "move-model-2",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-stackless-bytecode",
+      "move-stdlib",
+      "move-symbol-pool",
+      "move-vm-runtime"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "ast",
+      "translate"
+    ]
+  },
+  "move-core-types": {
+    "path": "external-crates/move/crates/move-core-types",
+    "description": "Core types for Move",
+    "deps": [
+      "enum-compat-util",
+      "move-proc-macros"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "account_address",
+      "annotated_extractor",
+      "annotated_value",
+      "annotated_visitor",
+      "effects",
+      "gas_algebra",
+      "identifier",
+      "language_storage",
+      "metadata",
+      "parsing",
+      "proptest_types",
+      "resolver",
+      "runtime_value",
+      "runtime_visitor",
+      "u256",
+      "unit_tests",
+      "vm_status"
+    ]
+  },
+  "move-borrow-graph": {
+    "path": "external-crates/move/crates/move-borrow-graph",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "graph",
+      "paths",
+      "references",
+      "shared"
+    ]
+  },
+  "move-disassembler": {
+    "path": "external-crates/move/crates/move-disassembler",
+    "description": "Print a human-readable version of Move bytecode (.mv files)",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-coverage",
+      "move-ir-types",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "disassembler"
+    ]
+  },
+  "jsonrpc": {
+    "path": "external-crates/move/crates/jsonrpc",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "client",
+      "types"
+    ]
+  },
+  "move-compiler-transactional-tests": {
+    "path": "external-crates/move/crates/move-compiler-transactional-tests",
+    "description": "",
+    "deps": [
+      "move-transactional-test-runner"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "move-model-2": {
+    "path": "external-crates/move/crates/move-model-2",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-types",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "compiled_model",
+      "display",
+      "model",
+      "normalized",
+      "pretty_printer",
+      "source_kind",
+      "source_model",
+      "summary"
+    ]
+  },
+  "move-vm-config": {
+    "path": "external-crates/move/crates/move-vm-config",
+    "description": "",
+    "deps": [
+      "move-binary-format"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "runtime",
+      "verifier"
+    ]
+  },
+  "move-symbol-pool": {
+    "path": "external-crates/move/crates/move-symbol-pool",
+    "description": "A static, global string table for Move tools",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "pool",
+      "symbol"
+    ]
+  },
+  "move-bytecode-utils": {
+    "path": "external-crates/move/crates/move-bytecode-utils",
+    "description": "Libraries for working with sets of Move bytecode modules",
+    "deps": [
+      "move-binary-format",
+      "move-core-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "layout",
+      "module_cache"
+    ]
+  },
+  "move-stdlib-natives": {
+    "path": "external-crates/move/crates/move-stdlib-natives",
+    "description": "Diem stdlib",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-vm-runtime",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bcs",
+      "debug",
+      "hash",
+      "signer",
+      "string",
+      "type_name",
+      "unit_test",
+      "vector",
+      "helpers"
+    ]
+  },
+  "move-regex-borrow-graph": {
+    "path": "external-crates/move/crates/move-regex-borrow-graph",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-command-line-common",
+      "move-core-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "collections",
+      "references",
+      "regex",
+      "tests"
+    ]
+  },
+  "move-vm-integration-tests": {
+    "path": "external-crates/move/crates/move-vm-integration-tests",
+    "description": "Move VM Integration Tests",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-to-bytecode",
+      "move-stdlib",
+      "move-stdlib-natives",
+      "move-vm-config",
+      "move-vm-profiler",
+      "move-vm-runtime",
+      "move-vm-test-utils",
+      "move-vm-types"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "compiler",
+      "tests"
+    ]
+  },
+  "move-ir-to-bytecode": {
+    "path": "external-crates/move/crates/move-ir-to-bytecode",
+    "description": "Diem ir to bytecode",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-command-line-common",
+      "move-core-types",
+      "move-ir-to-bytecode-syntax",
+      "move-ir-types",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "compiler",
+      "context",
+      "parser"
+    ]
+  },
+  "move-ir-compiler": {
+    "path": "external-crates/move/crates/move-ir-compiler",
+    "description": "Move IR to bytecode compiler",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-bytecode-verifier",
+      "move-command-line-common",
+      "move-core-types",
+      "move-ir-to-bytecode"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "util",
+      "unit_tests"
+    ]
+  },
+  "move-cli": {
+    "path": "external-crates/move/crates/move-cli",
+    "description": "CLI frontend for the Move compiler and VM",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-bytecode-viewer",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-coverage",
+      "move-decompiler",
+      "move-disassembler",
+      "move-docgen",
+      "move-ir-types",
+      "move-model-2",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-stdlib",
+      "move-stdlib-natives",
+      "move-symbol-pool",
+      "move-trace-format",
+      "move-unit-test",
+      "move-vm-config",
+      "move-vm-profiler",
+      "move-vm-runtime",
+      "move-vm-test-utils",
+      "move-vm-types"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "base",
+      "sandbox"
+    ]
+  },
+  "move-abstract-interpreter": {
+    "path": "external-crates/move/crates/move-abstract-interpreter",
+    "description": "Move abstract interpreter",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "absint",
+      "control_flow_graph"
+    ]
+  },
+  "move-package": {
+    "path": "external-crates/move/crates/move-package",
+    "description": "DEPRECATED: Use move-package-alt instead. This crate will be removed soon.",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-bytecode-utils",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-disassembler",
+      "move-docgen",
+      "move-model-2",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "package_lock",
+      "compilation",
+      "lock_file",
+      "migration",
+      "package_hooks",
+      "resolution",
+      "source_package"
+    ]
+  },
+  "bytecode-verifier-transactional-tests": {
+    "path": "external-crates/move/crates/bytecode-verifier-transactional-tests",
+    "description": "",
+    "deps": [
+      "move-transactional-test-runner"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "move-proc-macros": {
+    "path": "external-crates/move/crates/move-proc-macros",
+    "description": "",
+    "deps": [
+      "enum-compat-util"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "move-ir-compiler-transactional-tests": {
+    "path": "external-crates/move/crates/move-ir-compiler-transactional-tests",
+    "description": "",
+    "deps": [
+      "move-transactional-test-runner"
+    ],
+    "bin": false,
+    "entry": null,
+    "top_modules": []
+  },
+  "bytecode-verifier-prop-tests": {
+    "path": "external-crates/move/crates/bytecode-verifier-prop-tests",
+    "description": "Diem bytecode verifier tests",
+    "deps": [
+      "invalid-mutations",
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "unit_tests"
+    ]
+  },
+  "move-compiler": {
+    "path": "external-crates/move/crates/move-compiler",
+    "description": "The definition of the Move source language, and its compiler",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-borrow-graph",
+      "move-bytecode-source-map",
+      "move-bytecode-verifier",
+      "move-command-line-common",
+      "move-core-types",
+      "move-ir-to-bytecode",
+      "move-ir-types",
+      "move-proc-macros",
+      "move-stdlib",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "cfgir",
+      "command_line",
+      "compiled_unit",
+      "diagnostics",
+      "editions",
+      "expansion",
+      "hlir",
+      "interface_generator",
+      "ir_translation",
+      "linters",
+      "naming",
+      "parser",
+      "shared",
+      "sui_mode",
+      "to_bytecode",
+      "typing",
+      "unit_test"
+    ]
+  },
+  "move-analyzer": {
+    "path": "external-crates/move/crates/move-analyzer",
+    "description": "A language server for Move",
+    "deps": [
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-types",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "analysis",
+      "analyzer",
+      "code_action",
+      "compiler_info",
+      "completions",
+      "context",
+      "diagnostics",
+      "inlay_hints",
+      "symbols",
+      "utils",
+      "vfs"
+    ]
+  },
+  "move-coverage": {
+    "path": "external-crates/move/crates/move-coverage",
+    "description": "Diem Move VM code coverage",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-bytecode-verifier",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-types",
+      "move-trace-format"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "coverage_map",
+      "differential_coverage",
+      "lcov",
+      "source_coverage",
+      "summary"
+    ]
+  },
+  "enum-compat-util": {
+    "path": "external-crates/move/crates/enum-compat-util",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "move-bytecode-source-map": {
+    "path": "external-crates/move/crates/move-bytecode-source-map",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-command-line-common",
+      "move-core-types",
+      "move-ir-types",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "mapping",
+      "marking",
+      "source_map",
+      "utils"
+    ]
+  },
+  "test-generation": {
+    "path": "external-crates/move/crates/test-generation",
+    "description": "Tool for generating tests for the bytecode verifier and Move VM runtime",
+    "deps": [
+      "module-generation",
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-compiler",
+      "move-core-types",
+      "move-stdlib",
+      "move-stdlib-natives",
+      "move-vm-runtime",
+      "move-vm-test-utils",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "abstract_state",
+      "borrow_graph",
+      "bytecode_generator",
+      "config",
+      "control_flow_graph",
+      "error",
+      "summaries",
+      "transitions"
+    ]
+  },
+  "move-trace-format": {
+    "path": "external-crates/move/crates/move-trace-format",
+    "description": "Move Trace Format",
+    "deps": [
+      "move-binary-format",
+      "move-core-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "format",
+      "interface",
+      "memory_tracer",
+      "value"
+    ]
+  },
+  "bytecode-verifier-tests": {
+    "path": "external-crates/move/crates/bytecode-verifier-tests",
+    "description": "Diem bytecode verifier tests",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "support",
+      "unit_tests"
+    ]
+  },
+  "move-stackless-bytecode": {
+    "path": "external-crates/move/crates/move-stackless-bytecode",
+    "description": "Move stackless bytecode",
+    "deps": [
+      "move-binary-format",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-model",
+      "move-stdlib"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "access_path",
+      "access_path_trie",
+      "annotations",
+      "borrow_analysis",
+      "clean_and_optimize",
+      "compositional_analysis",
+      "dataflow_analysis",
+      "dataflow_domains",
+      "debug_instrumentation",
+      "eliminate_imm_refs",
+      "escape_analysis",
+      "function_data_builder",
+      "function_target",
+      "function_target_pipeline",
+      "graph",
+      "inconsistency_check",
+      "livevar_analysis",
+      "loop_analysis",
+      "memory_instrumentation",
+      "mono_analysis",
+      "mut_ref_instrumentation",
+      "mutation_tester",
+      "number_operation",
+      "number_operation_analysis",
+      "options",
+      "packed_types_analysis",
+      "pipeline_factory",
+      "reaching_def_analysis",
+      "stackless_bytecode",
+      "stackless_bytecode_generator",
+      "stackless_control_flow_graph"
+    ]
+  },
+  "move-ir-types": {
+    "path": "external-crates/move/crates/move-ir-types",
+    "description": "Types for Move IR",
+    "deps": [
+      "move-command-line-common",
+      "move-core-types",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "ast",
+      "location"
+    ]
+  },
+  "move-model": {
+    "path": "external-crates/move/crates/move-model",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-types",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "ast",
+      "builder",
+      "code_writer",
+      "exp_generator",
+      "model",
+      "options",
+      "pragmas",
+      "symbol",
+      "ty",
+      "well_known"
+    ]
+  },
+  "move-vm-profiler": {
+    "path": "external-crates/move/crates/move-vm-profiler",
+    "description": "",
+    "deps": [
+      "move-trace-format",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "trace_converter"
+    ]
+  },
+  "language-benchmarks": {
+    "path": "external-crates/move/crates/language-benchmarks",
+    "description": "Move language benchmarks",
+    "deps": [
+      "move-binary-format",
+      "move-compiler",
+      "move-core-types",
+      "move-stdlib",
+      "move-stdlib-natives",
+      "move-vm-runtime",
+      "move-vm-test-utils",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "measurement",
+      "move_vm"
+    ]
+  },
+  "move-ir-to-bytecode-syntax": {
+    "path": "external-crates/move/crates/move-ir-to-bytecode-syntax",
+    "description": "Diem ir to bytecode syntax",
+    "deps": [
+      "move-command-line-common",
+      "move-core-types",
+      "move-ir-types",
+      "move-symbol-pool"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "lexer",
+      "syntax"
+    ]
+  },
+  "move-vm-test-utils": {
+    "path": "external-crates/move/crates/move-vm-test-utils",
+    "description": "Move VM Test Utils",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-vm-profiler",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "storage",
+      "gas_schedule",
+      "tiered_gas_schedule"
+    ]
+  },
+  "move-vm-transactional-tests": {
+    "path": "external-crates/move/crates/move-vm-transactional-tests",
+    "description": "",
+    "deps": [
+      "move-transactional-test-runner"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "serializer-tests": {
+    "path": "external-crates/move/crates/serializer-tests",
+    "description": "Diem serializer tests",
+    "deps": [
+      "move-binary-format"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "move-bytecode-verifier-v1": {
+    "path": "external-crates/move/move-execution/v1/crates/move-bytecode-verifier",
+    "description": "Move bytecode verifier",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-abstract-stack",
+      "move-binary-format",
+      "move-borrow-graph",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "ability_field_requirements",
+      "absint",
+      "check_duplication",
+      "code_unit_verifier",
+      "constants",
+      "control_flow",
+      "control_flow_v5",
+      "cyclic_dependencies",
+      "dependencies",
+      "friends",
+      "instantiation_loops",
+      "instruction_consistency",
+      "limits",
+      "loop_summary",
+      "script_signature",
+      "signature",
+      "struct_defs",
+      "verifier",
+      "acquires_list_verifier",
+      "locals_safety",
+      "reference_safety",
+      "regression_tests",
+      "stack_usage_verifier",
+      "type_safety"
+    ]
+  },
+  "move-vm-types-v1": {
+    "path": "external-crates/move/move-execution/v1/crates/move-vm-types",
+    "description": "Types for Move VM",
+    "deps": [
+      "move-binary-format",
+      "move-core-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "data_store",
+      "gas",
+      "loaded_data",
+      "natives",
+      "values",
+      "views",
+      "unit_tests"
+    ]
+  },
+  "move-vm-runtime-v1": {
+    "path": "external-crates/move/move-execution/v1/crates/move-vm-runtime",
+    "description": "Core Move execution logic",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-compiler",
+      "move-vm-config",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "data_cache",
+      "interpreter",
+      "loader",
+      "logging",
+      "move_vm",
+      "native_extensions",
+      "native_functions",
+      "runtime",
+      "session",
+      "tracing",
+      "debug",
+      "unit_tests"
+    ]
+  },
+  "move-stdlib-natives-v1": {
+    "path": "external-crates/move/move-execution/v1/crates/move-stdlib-natives",
+    "description": "Diem stdlib",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-vm-runtime",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bcs",
+      "debug",
+      "hash",
+      "signer",
+      "string",
+      "type_name",
+      "unit_test",
+      "vector",
+      "helpers"
+    ]
+  },
+  "bytecode-verifier-tests-v1": {
+    "path": "external-crates/move/move-execution/v1/crates/bytecode-verifier-tests",
+    "description": "Diem bytecode verifier tests",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "support",
+      "unit_tests"
+    ]
+  },
+  "move-bytecode-verifier-v0": {
+    "path": "external-crates/move/move-execution/v0/crates/move-bytecode-verifier",
+    "description": "Move bytecode verifier",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-abstract-stack",
+      "move-binary-format",
+      "move-borrow-graph",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "ability_field_requirements",
+      "absint",
+      "check_duplication",
+      "code_unit_verifier",
+      "constants",
+      "control_flow",
+      "control_flow_v5",
+      "cyclic_dependencies",
+      "dependencies",
+      "friends",
+      "instantiation_loops",
+      "instruction_consistency",
+      "limits",
+      "loop_summary",
+      "script_signature",
+      "signature",
+      "struct_defs",
+      "verifier",
+      "acquires_list_verifier",
+      "locals_safety",
+      "reference_safety",
+      "regression_tests",
+      "stack_usage_verifier",
+      "type_safety"
+    ]
+  },
+  "move-vm-types-v0": {
+    "path": "external-crates/move/move-execution/v0/crates/move-vm-types",
+    "description": "Types for Move VM",
+    "deps": [
+      "move-binary-format",
+      "move-core-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "data_store",
+      "gas",
+      "loaded_data",
+      "natives",
+      "values",
+      "views",
+      "unit_tests"
+    ]
+  },
+  "move-vm-runtime-v0": {
+    "path": "external-crates/move/move-execution/v0/crates/move-vm-runtime",
+    "description": "Core Move execution logic",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-compiler",
+      "move-vm-config",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "data_cache",
+      "interpreter",
+      "loader",
+      "logging",
+      "move_vm",
+      "native_extensions",
+      "native_functions",
+      "runtime",
+      "session",
+      "tracing",
+      "debug",
+      "unit_tests"
+    ]
+  },
+  "move-stdlib-natives-v0": {
+    "path": "external-crates/move/move-execution/v0/crates/move-stdlib-natives",
+    "description": "Diem stdlib",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-vm-runtime",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bcs",
+      "debug",
+      "hash",
+      "signer",
+      "string",
+      "type_name",
+      "unit_test",
+      "vector",
+      "helpers"
+    ]
+  },
+  "bytecode-verifier-tests-v0": {
+    "path": "external-crates/move/move-execution/v0/crates/bytecode-verifier-tests",
+    "description": "Diem bytecode verifier tests",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "support",
+      "unit_tests"
+    ]
+  },
+  "move-bytecode-verifier-v2": {
+    "path": "external-crates/move/move-execution/v2/crates/move-bytecode-verifier",
+    "description": "Move bytecode verifier",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-abstract-stack",
+      "move-binary-format",
+      "move-borrow-graph",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "ability_field_requirements",
+      "absint",
+      "check_duplication",
+      "code_unit_verifier",
+      "constants",
+      "control_flow",
+      "control_flow_v5",
+      "cyclic_dependencies",
+      "dependencies",
+      "friends",
+      "instantiation_loops",
+      "instruction_consistency",
+      "limits",
+      "loop_summary",
+      "script_signature",
+      "signature",
+      "struct_defs",
+      "verifier",
+      "acquires_list_verifier",
+      "locals_safety",
+      "reference_safety",
+      "regression_tests",
+      "stack_usage_verifier",
+      "type_safety"
+    ]
+  },
+  "move-vm-types-v2": {
+    "path": "external-crates/move/move-execution/v2/crates/move-vm-types",
+    "description": "Types for Move VM",
+    "deps": [
+      "move-binary-format",
+      "move-core-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "data_store",
+      "gas",
+      "loaded_data",
+      "natives",
+      "values",
+      "views",
+      "unit_tests"
+    ]
+  },
+  "move-vm-runtime-v2": {
+    "path": "external-crates/move/move-execution/v2/crates/move-vm-runtime",
+    "description": "Core Move execution logic",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-compiler",
+      "move-vm-config",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "data_cache",
+      "interpreter",
+      "loader",
+      "logging",
+      "move_vm",
+      "native_extensions",
+      "native_functions",
+      "runtime",
+      "session",
+      "tracing",
+      "debug",
+      "unit_tests"
+    ]
+  },
+  "move-stdlib-natives-v2": {
+    "path": "external-crates/move/move-execution/v2/crates/move-stdlib-natives",
+    "description": "Diem stdlib",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-vm-runtime",
+      "move-vm-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bcs",
+      "debug",
+      "hash",
+      "signer",
+      "string",
+      "type_name",
+      "unit_test",
+      "vector",
+      "helpers"
+    ]
+  },
+  "move-abstract-interpreter-v2": {
+    "path": "external-crates/move/move-execution/v2/crates/move-abstract-interpreter",
+    "description": "Move abstract interpreter",
+    "deps": [
+      "move-binary-format"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "control_flow_graph",
+      "unit_tests"
+    ]
+  },
+  "bytecode-verifier-tests-v2": {
+    "path": "external-crates/move/move-execution/v2/crates/bytecode-verifier-tests",
+    "description": "Diem bytecode verifier tests",
+    "deps": [
+      "move-abstract-interpreter",
+      "move-binary-format",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "support",
+      "unit_tests"
+    ]
+  },
+  "consensus-types": {
+    "path": "consensus/types",
+    "description": "",
+    "deps": [
+      "consensus-config"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "block"
+    ]
+  },
+  "consensus-core": {
+    "path": "consensus/core",
+    "description": "",
+    "deps": [
+      "consensus-config",
+      "consensus-types",
+      "mysten-common",
+      "mysten-metrics",
+      "mysten-network",
+      "shared-crypto",
+      "sui-http",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-tls",
+      "telemetry-subscribers",
+      "typed-store"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "ancestor",
+      "authority_node",
+      "authority_service",
+      "base_committer",
+      "block",
+      "block_manager",
+      "block_verifier",
+      "commit",
+      "commit_consumer",
+      "commit_finalizer",
+      "commit_observer",
+      "commit_syncer",
+      "commit_vote_monitor",
+      "context",
+      "core",
+      "core_thread",
+      "dag_state",
+      "error",
+      "leader_schedule",
+      "leader_scoring",
+      "leader_timeout",
+      "linearizer",
+      "metrics",
+      "network",
+      "proposed_block_handler",
+      "round_prober",
+      "round_tracker",
+      "stake_aggregator",
+      "storage",
+      "subscriber",
+      "synchronizer",
+      "threshold_clock",
+      "transaction",
+      "transaction_certifier",
+      "universal_committer",
+      "test_dag",
+      "test_dag_builder",
+      "test_dag_parser",
+      "randomized_tests"
+    ]
+  },
+  "consensus-config": {
+    "path": "consensus/config",
+    "description": "",
+    "deps": [
+      "mysten-network",
+      "shared-crypto"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "committee",
+      "crypto",
+      "parameters",
+      "test_committee"
+    ]
+  },
+  "consensus-simtests": {
+    "path": "consensus/simtests",
+    "description": "",
+    "deps": [
+      "consensus-config",
+      "consensus-core",
+      "consensus-types",
+      "mysten-metrics",
+      "mysten-network",
+      "sui-config",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-simulator",
+      "telemetry-subscribers",
+      "typed-store"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "node"
+    ]
+  },
+  "sui-replay": {
+    "path": "crates/sui-replay",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "move-vm-config",
+      "shared-crypto",
+      "sui-config",
+      "sui-core",
+      "sui-execution",
+      "sui-framework",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-protocol-config",
+      "sui-sdk",
+      "sui-storage",
+      "sui-transaction-checks",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "batch_replay",
+      "config",
+      "data_fetcher",
+      "displays",
+      "fuzz",
+      "fuzz_mutations",
+      "replay",
+      "tests",
+      "transaction_provider",
+      "types"
+    ]
+  },
+  "sui-move-lsp": {
+    "path": "crates/sui-move-lsp",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-analyzer",
+      "move-compiler",
+      "sui-move-build",
+      "sui-package-alt",
+      "sui-package-management"
+    ],
+    "bin": false,
+    "entry": null,
+    "top_modules": []
+  },
+  "sui-storage": {
+    "path": "crates/sui-storage",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "mysten-metrics",
+      "sui-config",
+      "sui-json-rpc-types",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-simulator",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "typed-store"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "blob",
+      "http_key_value_store",
+      "key_value_store",
+      "key_value_store_metrics",
+      "mutex_table",
+      "object_store",
+      "package_object_cache",
+      "sharded_lru",
+      "write_path_pending_tx_log"
+    ]
+  },
+  "sui-graphql-rpc-headers": {
+    "path": "crates/sui-graphql-rpc-headers",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-json": {
+    "path": "crates/sui-json",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "sui-framework",
+      "sui-move-build",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "tests"
+    ]
+  },
+  "sui-test-validator": {
+    "path": "crates/sui-test-validator",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/main.rs",
+    "top_modules": []
+  },
+  "sui-indexer-alt-schema": {
+    "path": "crates/sui-indexer-alt-schema",
+    "description": "",
+    "deps": [
+      "sui-field-count",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "checkpoints",
+      "cp_sequence_numbers",
+      "displays",
+      "epochs",
+      "events",
+      "objects",
+      "packages",
+      "schema",
+      "transactions"
+    ]
+  },
+  "sui-indexer-alt-metrics": {
+    "path": "crates/sui-indexer-alt-metrics",
+    "description": "",
+    "deps": [
+      "prometheus-closure-metric",
+      "sui-futures",
+      "sui-pg-db"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "db"
+    ]
+  },
+  "sui-faucet": {
+    "path": "crates/sui-faucet",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "shared-crypto",
+      "sui-config",
+      "sui-keys",
+      "sui-sdk",
+      "test-cluster"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "app_state",
+      "errors",
+      "faucet_config",
+      "local_faucet",
+      "server",
+      "types"
+    ]
+  },
+  "sui-benchmark": {
+    "path": "crates/sui-benchmark",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "mysten-metrics",
+      "sui-config",
+      "sui-core",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-move-build",
+      "sui-network",
+      "sui-protocol-config",
+      "sui-sdk",
+      "sui-storage",
+      "sui-surfer",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bank",
+      "benchmark_setup",
+      "drivers",
+      "fullnode_reconfig_observer",
+      "in_memory_wallet",
+      "options",
+      "system_state_observer",
+      "util",
+      "workloads"
+    ]
+  },
+  "sui-indexer-alt-framework": {
+    "path": "crates/sui-indexer-alt-framework",
+    "description": "",
+    "deps": [
+      "sui-field-count",
+      "sui-futures",
+      "sui-indexer-alt-framework-store-traits",
+      "sui-indexer-alt-metrics",
+      "sui-pg-db",
+      "sui-rpc-api",
+      "sui-storage",
+      "sui-synthetic-ingestion",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "cluster",
+      "ingestion",
+      "metrics",
+      "pipeline",
+      "postgres",
+      "mocks"
+    ]
+  },
+  "sui-rosetta": {
+    "path": "crates/sui-rosetta",
+    "description": "",
+    "deps": [
+      "move-cli",
+      "move-core-types",
+      "mysten-metrics",
+      "shared-crypto",
+      "sui-config",
+      "sui-keys",
+      "sui-move-build",
+      "sui-sdk",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "account",
+      "block",
+      "construction",
+      "errors",
+      "network",
+      "operations",
+      "state",
+      "types"
+    ]
+  },
+  "typed-store-workspace-hack": {
+    "path": "crates/typed-store-workspace-hack",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-graphql-rpc": {
+    "path": "crates/sui-graphql-rpc",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-types",
+      "mysten-metrics",
+      "mysten-network",
+      "shared-crypto",
+      "simulacrum",
+      "sui-default-config",
+      "sui-display",
+      "sui-framework",
+      "sui-graphql-rpc-client",
+      "sui-graphql-rpc-headers",
+      "sui-indexer",
+      "sui-json-rpc",
+      "sui-json-rpc-types",
+      "sui-move-build",
+      "sui-name-service",
+      "sui-package-resolver",
+      "sui-pg-db",
+      "sui-protocol-config",
+      "sui-rpc-api",
+      "sui-sdk",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "commands",
+      "config",
+      "context_data",
+      "error",
+      "extensions",
+      "metrics",
+      "mutation",
+      "server",
+      "test_infra",
+      "types"
+    ]
+  },
+  "sui": {
+    "path": "crates/sui",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-analyzer",
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-bytecode-verifier-meter",
+      "move-cli",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-types",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-symbol-pool",
+      "move-trace-format",
+      "move-vm-config",
+      "move-vm-profiler",
+      "mysten-common",
+      "shared-crypto",
+      "sui-bridge",
+      "sui-config",
+      "sui-data-store",
+      "sui-execution",
+      "sui-faucet",
+      "sui-futures",
+      "sui-genesis-builder",
+      "sui-indexer-alt",
+      "sui-indexer-alt-consistent-store",
+      "sui-indexer-alt-framework",
+      "sui-indexer-alt-graphql",
+      "sui-indexer-alt-reader",
+      "sui-json",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-macros",
+      "sui-move",
+      "sui-move-build",
+      "sui-package-alt",
+      "sui-package-management",
+      "sui-pg-db",
+      "sui-protocol-config",
+      "sui-replay-2",
+      "sui-sdk",
+      "sui-simulator",
+      "sui-source-validation",
+      "sui-swarm",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "client_commands",
+      "client_ptb",
+      "clever_error_rendering",
+      "displays",
+      "fire_drill",
+      "genesis_ceremony",
+      "genesis_inspector",
+      "keytool",
+      "mvr_resolver",
+      "sui_commands",
+      "trace_analysis_commands",
+      "upgrade_compatibility",
+      "validator_commands",
+      "verifier_meter",
+      "zklogin_commands_util"
+    ]
+  },
+  "sui-json-rpc-types": {
+    "path": "crates/sui-json-rpc-types",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-command-line-common",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-types",
+      "mysten-metrics",
+      "sui-enum-compat-util",
+      "sui-json",
+      "sui-macros",
+      "sui-package-resolver",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "rpc_types_tests",
+      "balance_changes",
+      "displays",
+      "object_changes",
+      "sui_checkpoint",
+      "sui_coin",
+      "sui_event",
+      "sui_extended",
+      "sui_governance",
+      "sui_move",
+      "sui_object",
+      "sui_protocol",
+      "sui_transaction"
+    ]
+  },
+  "sui-protocol-config": {
+    "path": "crates/sui-protocol-config",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-vm-config",
+      "sui-protocol-config-macros"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-security-watchdog": {
+    "path": "crates/sui-security-watchdog",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "metrics",
+      "pagerduty",
+      "query_runner",
+      "scheduler"
+    ]
+  },
+  "typed-store-error": {
+    "path": "crates/typed-store-error",
+    "description": "error types for typed-store crate",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "errors"
+    ]
+  },
+  "sui-network": {
+    "path": "crates/sui-network",
+    "description": "",
+    "deps": [
+      "mysten-common",
+      "mysten-metrics",
+      "mysten-network",
+      "shared-crypto",
+      "sui-config",
+      "sui-data-ingestion-core",
+      "sui-http",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-simulator",
+      "sui-storage",
+      "sui-swarm-config",
+      "sui-tls",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "api",
+      "discovery",
+      "randomness",
+      "state_sync",
+      "utils",
+      "validator"
+    ]
+  },
+  "sui-surfer": {
+    "path": "crates/sui-surfer",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "mysten-common",
+      "sui-core",
+      "sui-json-rpc-types",
+      "sui-macros",
+      "sui-move-build",
+      "sui-protocol-config",
+      "sui-simulator",
+      "sui-swarm-config",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "surf_strategy",
+      "surfer_state",
+      "surfer_task"
+    ]
+  },
+  "sui-bridge-indexer": {
+    "path": "crates/sui-bridge-indexer",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-bridge",
+      "sui-bridge-schema",
+      "sui-config",
+      "sui-data-ingestion-core",
+      "sui-indexer",
+      "sui-indexer-builder",
+      "sui-json-rpc-types",
+      "sui-pg-db",
+      "sui-sdk",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "config",
+      "metrics",
+      "postgres_manager",
+      "storage",
+      "sui_transaction_handler",
+      "sui_transaction_queries",
+      "types",
+      "eth_bridge_indexer",
+      "sui_bridge_indexer"
+    ]
+  },
+  "sui-protocol-config-macros": {
+    "path": "crates/sui-protocol-config-macros",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-indexer-alt-object-store": {
+    "path": "crates/sui-indexer-alt-object-store",
+    "description": "",
+    "deps": [
+      "sui-indexer-alt-framework-store-traits"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "transaction-fuzzer": {
+    "path": "crates/transaction-fuzzer",
+    "description": "Tool to fuzz the system with randomly generated transactions",
+    "deps": [
+      "move-core-types",
+      "sui-core",
+      "sui-move-build",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "account_universe",
+      "config_fuzzer",
+      "executor",
+      "programmable_transaction_gen",
+      "transaction_data_gen",
+      "type_arg_fuzzer"
+    ]
+  },
+  "sui-proc-macros": {
+    "path": "crates/sui-proc-macros",
+    "description": "",
+    "deps": [
+      "sui-enum-compat-util"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-pg-db": {
+    "path": "crates/sui-pg-db",
+    "description": "",
+    "deps": [
+      "sui-field-count",
+      "sui-indexer-alt-framework-store-traits",
+      "sui-sql-macro",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "model",
+      "tls",
+      "query",
+      "schema",
+      "store",
+      "temp"
+    ]
+  },
+  "sui-http": {
+    "path": "crates/sui-http",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "body",
+      "config",
+      "connection_handler",
+      "connection_info",
+      "fuse",
+      "io",
+      "listener"
+    ]
+  },
+  "sui-framework": {
+    "path": "crates/sui-framework",
+    "description": "Move framework for sui platform",
+    "deps": [
+      "move-binary-format",
+      "move-compiler",
+      "move-core-types",
+      "move-package-alt-compilation",
+      "sui-config",
+      "sui-move-build",
+      "sui-package-alt",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "simulacrum": {
+    "path": "crates/simulacrum",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "shared-crypto",
+      "sui-config",
+      "sui-core",
+      "sui-execution",
+      "sui-framework",
+      "sui-framework-snapshot",
+      "sui-genesis-builder",
+      "sui-keys",
+      "sui-protocol-config",
+      "sui-storage",
+      "sui-swarm-config",
+      "sui-transaction-checks",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "epoch_state",
+      "store"
+    ]
+  },
+  "sui-default-config": {
+    "path": "crates/sui-default-config",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-open-rpc": {
+    "path": "crates/sui-open-rpc",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "sui-json",
+      "sui-json-rpc",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-authority-aggregation": {
+    "path": "crates/sui-authority-aggregation",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-bridge-schema": {
+    "path": "crates/sui-bridge-schema",
+    "description": "",
+    "deps": [
+      "sui-field-count",
+      "sui-indexer-builder"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "models",
+      "schema"
+    ]
+  },
+  "sui-macros": {
+    "path": "crates/sui-macros",
+    "description": "",
+    "deps": [
+      "sui-proc-macros"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "test-cluster": {
+    "path": "crates/test-cluster",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "mysten-common",
+      "sui-config",
+      "sui-core",
+      "sui-framework",
+      "sui-indexer",
+      "sui-json-rpc",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-macros",
+      "sui-node",
+      "sui-pg-db",
+      "sui-protocol-config",
+      "sui-sdk",
+      "sui-swarm",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "test_indexer_handle"
+    ]
+  },
+  "sui-node": {
+    "path": "crates/sui-node",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "consensus-core",
+      "move-vm-config",
+      "mysten-common",
+      "mysten-metrics",
+      "mysten-network",
+      "mysten-service",
+      "sui-config",
+      "sui-core",
+      "sui-http",
+      "sui-json-rpc",
+      "sui-json-rpc-api",
+      "sui-macros",
+      "sui-metrics-push-client",
+      "sui-name-service",
+      "sui-network",
+      "sui-protocol-config",
+      "sui-rpc-api",
+      "sui-snapshot",
+      "sui-storage",
+      "sui-telemetry",
+      "sui-tls",
+      "sui-types",
+      "telemetry-subscribers",
+      "typed-store"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "admin",
+      "handle",
+      "metrics"
+    ]
+  },
+  "sui-data-ingestion": {
+    "path": "crates/sui-data-ingestion",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-data-ingestion-core",
+      "sui-kvstore",
+      "sui-storage",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "progress_store",
+      "workers"
+    ]
+  },
+  "telemetry-subscribers": {
+    "path": "crates/telemetry-subscribers",
+    "description": "Library for common telemetry and observability functionality",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "file_exporter",
+      "span_latency_prom"
+    ]
+  },
+  "sui-genesis-builder": {
+    "path": "crates/sui-genesis-builder",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "shared-crypto",
+      "sui-config",
+      "sui-execution",
+      "sui-framework",
+      "sui-framework-snapshot",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "validator_info"
+    ]
+  },
+  "sui-analytics-indexer-derive": {
+    "path": "crates/sui-analytics-indexer-derive",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-indexer-alt-consistent-store": {
+    "path": "crates/sui-indexer-alt-consistent-store",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-core-types",
+      "mysten-network",
+      "sui-default-config",
+      "sui-futures",
+      "sui-indexer-alt-consistent-api",
+      "sui-indexer-alt-framework",
+      "sui-indexer-alt-metrics",
+      "sui-storage",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "args",
+      "config",
+      "db",
+      "indexer",
+      "metrics",
+      "restore",
+      "rpc",
+      "store"
+    ]
+  },
+  "sui-futures": {
+    "path": "crates/sui-futures",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "future",
+      "service",
+      "stream",
+      "task"
+    ]
+  },
+  "sui-keys": {
+    "path": "crates/sui-keys",
+    "description": "",
+    "deps": [
+      "jsonrpc",
+      "shared-crypto",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "external",
+      "key_derive",
+      "key_identity",
+      "keypair_file",
+      "keystore",
+      "random_names"
+    ]
+  },
+  "sui-indexer-alt-jsonrpc": {
+    "path": "crates/sui-indexer-alt-jsonrpc",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-binary-format",
+      "move-core-types",
+      "sui-default-config",
+      "sui-display",
+      "sui-futures",
+      "sui-indexer-alt-metrics",
+      "sui-indexer-alt-reader",
+      "sui-indexer-alt-schema",
+      "sui-json",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-name-service",
+      "sui-open-rpc",
+      "sui-open-rpc-macros",
+      "sui-package-resolver",
+      "sui-pg-db",
+      "sui-protocol-config",
+      "sui-sql-macro",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "api",
+      "args",
+      "config",
+      "context",
+      "data",
+      "error",
+      "metrics",
+      "paginate",
+      "timeout"
+    ]
+  },
+  "typed-store-derive": {
+    "path": "crates/typed-store-derive",
+    "description": "macros for the typed-store crate",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-transaction-checks": {
+    "path": "crates/sui-transaction-checks",
+    "description": "",
+    "deps": [
+      "sui-config",
+      "sui-execution",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "deny"
+    ]
+  },
+  "bin-version": {
+    "path": "crates/bin-version",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "mysten-common": {
+    "path": "crates/mysten-common",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-macros"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "backoff",
+      "decay_moving_average",
+      "logging",
+      "moving_window",
+      "random",
+      "random_util",
+      "sync"
+    ]
+  },
+  "sui-adapter-transactional-tests": {
+    "path": "crates/sui-adapter-transactional-tests",
+    "description": "Transactional tests for Sui Adapter",
+    "deps": [
+      "sui-transactional-test-runner"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-indexer-alt-restorer": {
+    "path": "crates/sui-indexer-alt-restorer",
+    "description": "",
+    "deps": [
+      "sui-config",
+      "sui-core",
+      "sui-data-ingestion-core",
+      "sui-field-count",
+      "sui-futures",
+      "sui-indexer-alt-schema",
+      "sui-pg-db",
+      "sui-snapshot",
+      "sui-storage",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "archives",
+      "snapshot"
+    ]
+  },
+  "mysten-service": {
+    "path": "crates/mysten-service",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "health",
+      "logging",
+      "metrics",
+      "server_timing",
+      "service"
+    ]
+  },
+  "sui-json-rpc-tests": {
+    "path": "crates/sui-json-rpc-tests",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "shared-crypto",
+      "sui-config",
+      "sui-core",
+      "sui-json",
+      "sui-json-rpc",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-macros",
+      "sui-move-build",
+      "sui-open-rpc",
+      "sui-open-rpc-macros",
+      "sui-protocol-config",
+      "sui-sdk",
+      "sui-simulator",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": null,
+    "top_modules": []
+  },
+  "sui-tool": {
+    "path": "crates/sui-tool",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "consensus-core",
+      "move-core-types",
+      "mysten-metrics",
+      "sui-config",
+      "sui-core",
+      "sui-data-ingestion-core",
+      "sui-network",
+      "sui-package-dump",
+      "sui-protocol-config",
+      "sui-replay",
+      "sui-sdk",
+      "sui-snapshot",
+      "sui-storage",
+      "sui-tls",
+      "sui-types",
+      "telemetry-subscribers",
+      "typed-store"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "commands",
+      "db_tool",
+      "formal_snapshot_util"
+    ]
+  },
+  "sui-deepbook-indexer": {
+    "path": "crates/sui-deepbook-indexer",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-config",
+      "sui-data-ingestion-core",
+      "sui-indexer-builder",
+      "sui-json-rpc-types",
+      "sui-sdk",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "config",
+      "error",
+      "events",
+      "metrics",
+      "models",
+      "postgres_manager",
+      "schema",
+      "server",
+      "sui_deepbook_indexer",
+      "types"
+    ]
+  },
+  "sui-aws-orchestrator": {
+    "path": "crates/sui-aws-orchestrator",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-config",
+      "sui-swarm-config",
+      "sui-types"
+    ],
+    "bin": true,
+    "entry": "src/main.rs",
+    "top_modules": [
+      "benchmark",
+      "client",
+      "display",
+      "error",
+      "faults",
+      "logs",
+      "measurement",
+      "monitor",
+      "orchestrator",
+      "protocol",
+      "settings",
+      "ssh",
+      "testbed"
+    ]
+  },
+  "sui-indexer-alt": {
+    "path": "crates/sui-indexer-alt",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "sui-default-config",
+      "sui-indexer-alt-framework",
+      "sui-indexer-alt-metrics",
+      "sui-indexer-alt-schema",
+      "sui-protocol-config",
+      "sui-synthetic-ingestion",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "args",
+      "benchmark",
+      "config"
+    ]
+  },
+  "sui-synthetic-ingestion": {
+    "path": "crates/sui-synthetic-ingestion",
+    "description": "",
+    "deps": [
+      "simulacrum",
+      "sui-storage",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "synthetic_ingestion"
+    ]
+  },
+  "sui-sql-macro": {
+    "path": "crates/sui-sql-macro",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "lexer",
+      "parser"
+    ]
+  },
+  "sui-enum-compat-util": {
+    "path": "crates/sui-enum-compat-util",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-indexer-builder": {
+    "path": "crates/sui-indexer-builder",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-data-ingestion-core",
+      "sui-indexer-builder",
+      "sui-sdk",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "indexer_builder",
+      "metrics",
+      "progress",
+      "sui_datasource"
+    ]
+  },
+  "sui-light-client": {
+    "path": "crates/sui-light-client",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "sui-config",
+      "sui-data-ingestion-core",
+      "sui-json-rpc-types",
+      "sui-package-resolver",
+      "sui-rpc-api",
+      "sui-sdk",
+      "sui-storage",
+      "sui-types"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "proof",
+      "checkpoint",
+      "config",
+      "object_store",
+      "package_store",
+      "graphql",
+      "mmr",
+      "verifier"
+    ]
+  },
+  "shared-crypto": {
+    "path": "crates/shared-crypto",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "intent"
+    ]
+  },
+  "sui-swarm-config": {
+    "path": "crates/sui-swarm-config",
+    "description": "",
+    "deps": [
+      "move-bytecode-utils",
+      "mysten-common",
+      "shared-crypto",
+      "sui-config",
+      "sui-execution",
+      "sui-genesis-builder",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-rpc-api",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "genesis_config",
+      "network_config",
+      "network_config_builder",
+      "node_config_builder",
+      "test_utils"
+    ]
+  },
+  "sui-indexer-alt-reader": {
+    "path": "crates/sui-indexer-alt-reader",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "sui-futures",
+      "sui-indexer-alt-consistent-api",
+      "sui-indexer-alt-metrics",
+      "sui-indexer-alt-schema",
+      "sui-kvstore",
+      "sui-package-resolver",
+      "sui-pg-db",
+      "sui-rpc-api",
+      "sui-sql-macro",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bigtable_reader",
+      "checkpoints",
+      "coin_metadata",
+      "consistent_reader",
+      "cp_sequence_numbers",
+      "displays",
+      "epochs",
+      "error",
+      "events",
+      "fullnode_client",
+      "kv_loader",
+      "ledger_grpc_reader",
+      "object_versions",
+      "objects",
+      "package_resolver",
+      "packages",
+      "pg_reader",
+      "system_package_task",
+      "transactions",
+      "tx_balance_changes",
+      "tx_digests"
+    ]
+  },
+  "sui-framework-snapshot": {
+    "path": "crates/sui-framework-snapshot",
+    "description": "Tool to create a bytecode snapshot of the current sui-framework",
+    "deps": [
+      "bin-version",
+      "sui-framework",
+      "sui-move-build",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-bridge": {
+    "path": "crates/sui-bridge",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-core-types",
+      "mysten-common",
+      "mysten-metrics",
+      "shared-crypto",
+      "sui-authority-aggregation",
+      "sui-config",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-metrics-push-client",
+      "sui-sdk",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster",
+      "typed-store"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "abi",
+      "action_executor",
+      "client",
+      "config",
+      "crypto",
+      "encoding",
+      "error",
+      "eth_client",
+      "eth_syncer",
+      "eth_transaction_builder",
+      "events",
+      "metered_eth_provider",
+      "metrics",
+      "monitor",
+      "node",
+      "orchestrator",
+      "server",
+      "storage",
+      "sui_bridge_watchdog",
+      "sui_client",
+      "sui_syncer",
+      "sui_transaction_builder",
+      "types",
+      "utils",
+      "test_utils",
+      "e2e_tests"
+    ]
+  },
+  "sui-rpc-api": {
+    "path": "crates/sui-rpc-api",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "mysten-network",
+      "sui-config",
+      "sui-name-service",
+      "sui-package-resolver",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "client",
+      "config",
+      "error",
+      "grpc",
+      "metrics",
+      "reader",
+      "response",
+      "service",
+      "subscription"
+    ]
+  },
+  "sui-indexer-alt-framework-store-traits": {
+    "path": "crates/sui-indexer-alt-framework-store-traits",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-source-validation": {
+    "path": "crates/sui-source-validation",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-symbol-pool",
+      "sui-config",
+      "sui-json-rpc-types",
+      "sui-move-build",
+      "sui-package-alt",
+      "sui-package-management",
+      "sui-sdk",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "error",
+      "toolchain",
+      "tests"
+    ]
+  },
+  "suins-indexer": {
+    "path": "crates/suins-indexer",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "mysten-metrics",
+      "mysten-service",
+      "sui-data-ingestion-core",
+      "sui-name-service",
+      "sui-storage",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "indexer",
+      "models",
+      "schema"
+    ]
+  },
+  "sui-json-rpc-api": {
+    "path": "crates/sui-json-rpc-api",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-json",
+      "sui-json-rpc-types",
+      "sui-open-rpc",
+      "sui-open-rpc-macros",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bridge",
+      "coin",
+      "extended",
+      "governance",
+      "indexer",
+      "move_utils",
+      "read",
+      "transaction_builder",
+      "write"
+    ]
+  },
+  "sui-verifier-transactional-tests": {
+    "path": "crates/sui-verifier-transactional-tests",
+    "description": "Transactional tests for Sui Verifier",
+    "deps": [
+      "sui-transactional-test-runner"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-package-alt": {
+    "path": "crates/sui-package-alt",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-compiler",
+      "move-core-types",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "shared-crypto",
+      "sui-config",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-package-management",
+      "sui-sdk"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "environments",
+      "find_env",
+      "sui_flavor"
+    ]
+  },
+  "sui-e2e-tests": {
+    "path": "crates/sui-e2e-tests",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "mysten-common",
+      "mysten-metrics",
+      "shared-crypto",
+      "sui-config",
+      "sui-core",
+      "sui-framework",
+      "sui-framework-snapshot",
+      "sui-json-rpc",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-light-client",
+      "sui-macros",
+      "sui-move-build",
+      "sui-network",
+      "sui-node",
+      "sui-protocol-config",
+      "sui-rpc-api",
+      "sui-sdk",
+      "sui-simulator",
+      "sui-storage",
+      "sui-swarm",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-tool",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": null,
+    "top_modules": []
+  },
+  "sui-indexer": {
+    "path": "crates/sui-indexer",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "mysten-metrics",
+      "simulacrum",
+      "sui-config",
+      "sui-core",
+      "sui-data-ingestion-core",
+      "sui-json",
+      "sui-json-rpc",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-move-build",
+      "sui-name-service",
+      "sui-open-rpc",
+      "sui-package-resolver",
+      "sui-pg-db",
+      "sui-protocol-config",
+      "sui-rpc-api",
+      "sui-sdk",
+      "sui-snapshot",
+      "sui-storage",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "apis",
+      "backfill",
+      "config",
+      "database",
+      "db",
+      "errors",
+      "handlers",
+      "indexer",
+      "indexer_reader",
+      "metrics",
+      "models",
+      "schema",
+      "store",
+      "system_package_task",
+      "test_utils",
+      "types"
+    ]
+  },
+  "sui-oracle": {
+    "path": "crates/sui-oracle",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "shared-crypto",
+      "sui-config",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-move-build",
+      "sui-sdk",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "config",
+      "metrics"
+    ]
+  },
+  "sui-name-service": {
+    "path": "crates/sui-name-service",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-indexer-alt-consistent-api": {
+    "path": "crates/sui-indexer-alt-consistent-api",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "proto"
+    ]
+  },
+  "sui-simulator": {
+    "path": "crates/sui-simulator",
+    "description": "",
+    "deps": [
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "mysten-network",
+      "sui-framework",
+      "sui-move-build",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-move": {
+    "path": "crates/sui-move",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-cli",
+      "move-compiler",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-types",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-unit-test",
+      "move-vm-runtime",
+      "mysten-metrics",
+      "sui-config",
+      "sui-macros",
+      "sui-move-build",
+      "sui-package-alt",
+      "sui-protocol-config",
+      "sui-sdk",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "build",
+      "cache_package",
+      "coverage",
+      "disassemble",
+      "migrate",
+      "new",
+      "summary",
+      "unit_test",
+      "update_deps"
+    ]
+  },
+  "sui-graphql-rpc-client": {
+    "path": "crates/sui-graphql-rpc-client",
+    "description": "",
+    "deps": [
+      "sui-graphql-rpc-headers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "response",
+      "simple_client"
+    ]
+  },
+  "sui-test-transaction-builder": {
+    "path": "crates/sui-test-transaction-builder",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "shared-crypto",
+      "sui-genesis-builder",
+      "sui-move-build",
+      "sui-sdk",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-snapshot": {
+    "path": "crates/sui-snapshot",
+    "description": "",
+    "deps": [
+      "sui-config",
+      "sui-core",
+      "sui-futures",
+      "sui-protocol-config",
+      "sui-storage",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "tests",
+      "reader",
+      "uploader",
+      "writer"
+    ]
+  },
+  "sui-indexer-alt-graphql": {
+    "path": "crates/sui-indexer-alt-graphql",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-binary-format",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-types",
+      "shared-crypto",
+      "sui-default-config",
+      "sui-display",
+      "sui-futures",
+      "sui-indexer-alt-metrics",
+      "sui-indexer-alt-reader",
+      "sui-indexer-alt-schema",
+      "sui-name-service",
+      "sui-package-resolver",
+      "sui-pg-db",
+      "sui-protocol-config",
+      "sui-rpc-api",
+      "sui-sql-macro",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "api",
+      "args",
+      "config",
+      "error",
+      "extensions",
+      "health",
+      "intersect",
+      "metrics",
+      "middleware",
+      "pagination",
+      "scope",
+      "task"
+    ]
+  },
+  "sui-metrics-push-client": {
+    "path": "crates/sui-metrics-push-client",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-tls",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "client"
+    ]
+  },
+  "sui-rpc-loadgen": {
+    "path": "crates/sui-rpc-loadgen",
+    "description": "",
+    "deps": [
+      "shared-crypto",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-sdk",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": true,
+    "entry": "src/main.rs",
+    "top_modules": [
+      "load_test",
+      "payload"
+    ]
+  },
+  "sui-transactional-test-runner": {
+    "path": "crates/sui-transactional-test-runner",
+    "description": "Move framework for Sui platform",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-stdlib",
+      "move-symbol-pool",
+      "move-transactional-test-runner",
+      "move-vm-runtime",
+      "simulacrum",
+      "sui-config",
+      "sui-core",
+      "sui-framework",
+      "sui-framework-snapshot",
+      "sui-graphql-rpc",
+      "sui-json-rpc",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-protocol-config",
+      "sui-rpc-api",
+      "sui-storage",
+      "sui-swarm-config",
+      "sui-types",
+      "telemetry-subscribers",
+      "typed-store"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "args",
+      "cursor",
+      "offchain_state",
+      "programmable_transaction_test_parser",
+      "simulator_persisted_store",
+      "test_adapter"
+    ]
+  },
+  "sui-indexer-alt-e2e-tests": {
+    "path": "crates/sui-indexer-alt-e2e-tests",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "shared-crypto",
+      "simulacrum",
+      "sui-field-count",
+      "sui-futures",
+      "sui-indexer-alt",
+      "sui-indexer-alt-consistent-api",
+      "sui-indexer-alt-consistent-store",
+      "sui-indexer-alt-framework",
+      "sui-indexer-alt-graphql",
+      "sui-indexer-alt-jsonrpc",
+      "sui-indexer-alt-reader",
+      "sui-indexer-alt-schema",
+      "sui-json-rpc-types",
+      "sui-macros",
+      "sui-move-build",
+      "sui-pg-db",
+      "sui-sdk",
+      "sui-storage",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-transactional-test-runner",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "coin_registry",
+      "find"
+    ]
+  },
+  "sui-upgrade-compatibility-transactional-tests": {
+    "path": "crates/sui-upgrade-compatibility-transactional-tests",
+    "description": "Transactional tests for package upgrade compatibility checking",
+    "deps": [
+      "move-binary-format",
+      "move-command-line-common",
+      "move-compiler",
+      "sui-move-build"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-field-count": {
+    "path": "crates/sui-field-count",
+    "description": "",
+    "deps": [
+      "sui-field-count-derive"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "mysten-metrics": {
+    "path": "crates/mysten-metrics",
+    "description": "",
+    "deps": [
+      "prometheus-closure-metric"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "guards",
+      "histogram",
+      "metered_channel",
+      "monitored_mpsc",
+      "thread_stall_monitor"
+    ]
+  },
+  "sui-display": {
+    "path": "crates/sui-display",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "sui-json-rpc-types",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "v1",
+      "v2"
+    ]
+  },
+  "sui-core": {
+    "path": "crates/sui-core",
+    "description": "",
+    "deps": [
+      "consensus-config",
+      "consensus-core",
+      "consensus-types",
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "move-symbol-pool",
+      "mysten-common",
+      "mysten-metrics",
+      "mysten-network",
+      "shared-crypto",
+      "sui-authority-aggregation",
+      "sui-config",
+      "sui-execution",
+      "sui-framework",
+      "sui-genesis-builder",
+      "sui-json-rpc-types",
+      "sui-macros",
+      "sui-move",
+      "sui-move-build",
+      "sui-network",
+      "sui-protocol-config",
+      "sui-simulator",
+      "sui-storage",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-tls",
+      "sui-transaction-checks",
+      "sui-types",
+      "telemetry-subscribers",
+      "typed-store"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "accumulators",
+      "authority",
+      "authority_aggregator",
+      "authority_client",
+      "authority_server",
+      "checkpoints",
+      "congestion_tracker",
+      "consensus_adapter",
+      "consensus_handler",
+      "consensus_manager",
+      "consensus_throughput_calculator",
+      "consensus_validator",
+      "db_checkpoint_handler",
+      "epoch",
+      "execution_cache",
+      "execution_driver",
+      "execution_scheduler",
+      "fallback_fetch",
+      "global_state_hasher",
+      "jsonrpc_index",
+      "metrics",
+      "mock_checkpoint_builder",
+      "mock_consensus",
+      "module_cache_metrics",
+      "mysticeti_adapter",
+      "overload_monitor",
+      "par_index_live_object_set",
+      "rpc_index",
+      "runtime",
+      "safe_client",
+      "scoring_decision",
+      "signature_verifier",
+      "stake_aggregator",
+      "status_aggregator",
+      "storage",
+      "streamer",
+      "subscription_handler",
+      "test_utils",
+      "traffic_controller",
+      "transaction_driver",
+      "transaction_input_loader",
+      "transaction_orchestrator",
+      "transaction_outputs",
+      "transaction_signing_filter",
+      "validator_client_monitor",
+      "verify_indexes",
+      "congestion_control_tests",
+      "consensus_test_utils",
+      "move_package_publish_tests",
+      "move_package_tests",
+      "move_package_upgrade_tests",
+      "pay_sui_tests",
+      "shared_object_deletion_tests",
+      "test_authority_clients",
+      "transfer_to_object_tests",
+      "type_param_tests",
+      "unit_test_utils"
+    ]
+  },
+  "sui-replay-2": {
+    "path": "crates/sui-replay-2",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "move-binary-format",
+      "move-bytecode-source-map",
+      "move-cli",
+      "move-command-line-common",
+      "move-core-types",
+      "move-disassembler",
+      "move-ir-types",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-trace-format",
+      "sui-config",
+      "sui-data-store",
+      "sui-execution",
+      "sui-framework",
+      "sui-json-rpc-types",
+      "sui-move",
+      "sui-move-build",
+      "sui-package-alt",
+      "sui-package-management",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "artifacts",
+      "displays",
+      "execution",
+      "package_tools",
+      "replay_txn",
+      "summary_metrics",
+      "tracing"
+    ]
+  },
+  "typed-store": {
+    "path": "crates/typed-store",
+    "description": "a typed database interface",
+    "deps": [
+      "mysten-common",
+      "mysten-metrics",
+      "sui-macros",
+      "typed-store-derive",
+      "typed-store-error",
+      "typed-store-workspace-hack"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "traits",
+      "memstore",
+      "metrics",
+      "rocks",
+      "tidehunter_util",
+      "util"
+    ]
+  },
+  "sui-json-rpc": {
+    "path": "crates/sui-json-rpc",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "mysten-metrics",
+      "shared-crypto",
+      "sui-config",
+      "sui-core",
+      "sui-display",
+      "sui-json",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-macros",
+      "sui-name-service",
+      "sui-open-rpc",
+      "sui-open-rpc-macros",
+      "sui-protocol-config",
+      "sui-storage",
+      "sui-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "typed-store-error"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "authority_state",
+      "balance_changes",
+      "bridge_api",
+      "coin_api",
+      "error",
+      "governance_api",
+      "indexer_api",
+      "logger",
+      "metrics",
+      "move_utils",
+      "object_changes",
+      "read_api",
+      "traffic_control",
+      "transaction_builder_api",
+      "transaction_execution_api"
+    ]
+  },
+  "sui-data-store": {
+    "path": "crates/sui-data-store",
+    "description": "",
+    "deps": [
+      "sui-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "gql_queries",
+      "node",
+      "stores"
+    ]
+  },
+  "sui-telemetry": {
+    "path": "crates/sui-telemetry",
+    "description": "",
+    "deps": [
+      "sui-core"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-sdk": {
+    "path": "crates/sui-sdk",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "mysten-common",
+      "shared-crypto",
+      "sui-config",
+      "sui-json",
+      "sui-json-rpc-api",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-simulator",
+      "sui-transaction-builder",
+      "sui-types",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "apis",
+      "error",
+      "json_rpc_error",
+      "sui_client_config",
+      "verify_personal_message_signature",
+      "wallet_context"
+    ]
+  },
+  "sui-rpc-benchmark": {
+    "path": "crates/sui-rpc-benchmark",
+    "description": "",
+    "deps": [
+      "sui-futures",
+      "telemetry-subscribers"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "config",
+      "direct",
+      "json_rpc"
+    ]
+  },
+  "sui-field-count-derive": {
+    "path": "crates/sui-field-count-derive",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-package-management": {
+    "path": "crates/sui-package-management",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "move-symbol-pool",
+      "sui-framework-snapshot",
+      "sui-json-rpc-types",
+      "sui-protocol-config",
+      "sui-sdk",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "system_package_versions"
+    ]
+  },
+  "sui-rpc-resolver": {
+    "path": "crates/sui-rpc-resolver",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "sui-package-resolver",
+      "sui-rpc-api",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "json_visitor",
+      "package_store"
+    ]
+  },
+  "sui-bridge-indexer-alt": {
+    "path": "crates/sui-bridge-indexer-alt",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "mysten-metrics",
+      "sui-bridge",
+      "sui-bridge-schema",
+      "sui-indexer-alt-framework",
+      "sui-indexer-alt-metrics",
+      "telemetry-subscribers"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "handlers",
+      "metrics"
+    ]
+  },
+  "sui-cost": {
+    "path": "crates/sui-cost",
+    "description": "",
+    "deps": [
+      "move-disassembler",
+      "sui-config",
+      "sui-json-rpc-types",
+      "sui-move-build",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": null,
+    "top_modules": []
+  },
+  "sui-proxy": {
+    "path": "crates/sui-proxy",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "mysten-metrics",
+      "sui-tls",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "admin",
+      "config",
+      "consumer",
+      "handlers",
+      "histogram_relay",
+      "metrics",
+      "middleware",
+      "peers",
+      "prom_to_mimir",
+      "remote_write"
+    ]
+  },
+  "sui-graphql-e2e-tests": {
+    "path": "crates/sui-graphql-e2e-tests",
+    "description": "End to end tests for Sui GraphQL",
+    "deps": [
+      "sui-graphql-rpc",
+      "sui-transactional-test-runner",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-move-build": {
+    "path": "crates/sui-move-build",
+    "description": "Logic for building Sui Move Packages",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "move-ir-types",
+      "move-package-alt",
+      "move-package-alt-compilation",
+      "move-symbol-pool",
+      "mysten-common",
+      "sui-package-alt",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "build_tests"
+    ]
+  },
+  "sui-kvstore": {
+    "path": "crates/sui-kvstore",
+    "description": "",
+    "deps": [
+      "sui-data-ingestion-core",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "bigtable"
+    ]
+  },
+  "prometheus-closure-metric": {
+    "path": "crates/prometheus-closure-metric",
+    "description": "Library for a Prometheus metric that computes its value by given closure at collection time",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-types": {
+    "path": "crates/sui-types",
+    "description": "",
+    "deps": [
+      "consensus-config",
+      "consensus-types",
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "move-trace-format",
+      "move-vm-profiler",
+      "move-vm-test-utils",
+      "mysten-common",
+      "mysten-metrics",
+      "mysten-network",
+      "shared-crypto",
+      "sui-enum-compat-util",
+      "sui-macros",
+      "sui-protocol-config",
+      "typed-store-error"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "error",
+      "accumulator_event",
+      "accumulator_metadata",
+      "accumulator_root",
+      "address_alias",
+      "authenticator_state",
+      "balance",
+      "balance_change",
+      "base_types",
+      "bridge",
+      "clock",
+      "coin",
+      "coin_registry",
+      "coin_reservation",
+      "collection_types",
+      "committee",
+      "config",
+      "crypto",
+      "deny_list_v1",
+      "deny_list_v2",
+      "derived_object",
+      "digests",
+      "display",
+      "display_registry",
+      "dynamic_field",
+      "effects",
+      "epoch_data",
+      "event",
+      "executable_transaction",
+      "execution",
+      "execution_params",
+      "execution_status",
+      "full_checkpoint_content",
+      "funds_accumulator",
+      "gas",
+      "gas_coin",
+      "gas_model",
+      "global_state_hash",
+      "governance",
+      "id",
+      "in_memory_storage",
+      "inner_temporary_store",
+      "layout_resolver",
+      "message_envelope",
+      "messages_checkpoint",
+      "messages_consensus",
+      "messages_grpc",
+      "messages_safe_client",
+      "metrics",
+      "move_package",
+      "multisig",
+      "multisig_legacy",
+      "nitro_attestation",
+      "object",
+      "passkey_authenticator",
+      "programmable_transaction_builder",
+      "proto_value",
+      "ptb_trace",
+      "randomness_state",
+      "rpc_proto_conversions",
+      "signature",
+      "signature_verification",
+      "storage",
+      "sui_sdk_types_conversions",
+      "sui_serde",
+      "sui_system_state",
+      "supported_protocol_versions",
+      "test_checkpoint_data_builder",
+      "traffic_control",
+      "transaction",
+      "transaction_driver_types",
+      "transaction_executor",
+      "transfer",
+      "type_input",
+      "versioned",
+      "zk_login_authenticator",
+      "zk_login_util",
+      "utils"
+    ]
+  },
+  "sui-package-dump": {
+    "path": "crates/sui-package-dump",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "client",
+      "query"
+    ]
+  },
+  "sui-checkpoint-blob-indexer": {
+    "path": "crates/sui-checkpoint-blob-indexer",
+    "description": "",
+    "deps": [
+      "sui-config",
+      "sui-indexer-alt-framework",
+      "sui-indexer-alt-framework-store-traits",
+      "sui-indexer-alt-metrics",
+      "sui-indexer-alt-object-store",
+      "sui-types"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "handlers"
+    ]
+  },
+  "sui-analytics-indexer": {
+    "path": "crates/sui-analytics-indexer",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "mysten-metrics",
+      "sui-analytics-indexer-derive",
+      "sui-futures",
+      "sui-indexer",
+      "sui-indexer-alt-framework",
+      "sui-indexer-alt-framework-store-traits",
+      "sui-indexer-alt-metrics",
+      "sui-indexer-alt-object-store",
+      "sui-json-rpc-types",
+      "sui-package-resolver",
+      "sui-rpc-api",
+      "sui-storage",
+      "sui-types",
+      "telemetry-subscribers",
+      "typed-store"
+    ],
+    "bin": true,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "config",
+      "handlers",
+      "indexer",
+      "metrics",
+      "package_store",
+      "pipeline",
+      "progress_monitoring",
+      "schema",
+      "store",
+      "tables",
+      "writers"
+    ]
+  },
+  "sui-framework-tests": {
+    "path": "crates/sui-framework-tests",
+    "description": "Runs Move tests for sui-framework",
+    "deps": [
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-cli",
+      "move-package-alt-compilation",
+      "move-unit-test",
+      "sui-config",
+      "sui-framework",
+      "sui-move",
+      "sui-move-build",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "metered_verifier"
+    ]
+  },
+  "sui-kv-rpc": {
+    "path": "crates/sui-kv-rpc",
+    "description": "",
+    "deps": [
+      "bin-version",
+      "mysten-metrics",
+      "mysten-network",
+      "sui-data-ingestion-core",
+      "sui-kvstore",
+      "sui-protocol-config",
+      "sui-rpc-api",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "v2"
+    ]
+  },
+  "mysten-network": {
+    "path": "crates/mysten-network",
+    "description": "Mysten's network tooling",
+    "deps": [
+      "mysten-metrics",
+      "sui-http",
+      "sui-tls"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "anemo_connection_monitor",
+      "anemo_ext",
+      "callback",
+      "client",
+      "codec",
+      "config",
+      "grpc_timeout",
+      "metrics",
+      "multiaddr",
+      "quinn_metrics"
+    ]
+  },
+  "anemo-benchmark": {
+    "path": "crates/anemo-benchmark",
+    "description": "",
+    "deps": [
+      "mysten-network",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "server"
+    ]
+  },
+  "x": {
+    "path": "crates/x",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/main.rs",
+    "top_modules": [
+      "external_crates_tests",
+      "lint"
+    ]
+  },
+  "sui-swarm": {
+    "path": "crates/sui-swarm",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "mysten-network",
+      "sui-config",
+      "sui-macros",
+      "sui-node",
+      "sui-protocol-config",
+      "sui-swarm-config",
+      "sui-tls",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "memory"
+    ]
+  },
+  "sui-bridge-cli": {
+    "path": "crates/sui-bridge-cli",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "shared-crypto",
+      "sui-bridge",
+      "sui-config",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-sdk",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-data-ingestion-core": {
+    "path": "crates/sui-data-ingestion-core",
+    "description": "",
+    "deps": [
+      "mysten-metrics",
+      "sui-protocol-config",
+      "sui-rpc-api",
+      "sui-storage",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "executor",
+      "metrics",
+      "progress_store",
+      "reader",
+      "reducer",
+      "tests",
+      "util",
+      "worker_pool"
+    ]
+  },
+  "sui-metric-checker": {
+    "path": "crates/sui-metric-checker",
+    "description": "",
+    "deps": [
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "query"
+    ]
+  },
+  "sui-config": {
+    "path": "crates/sui-config",
+    "description": "",
+    "deps": [
+      "consensus-config",
+      "move-vm-config",
+      "mysten-common",
+      "sui-keys",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "certificate_deny_config",
+      "dynamic_transaction_signing_checks",
+      "genesis",
+      "local_ip_utils",
+      "node",
+      "node_config_metrics",
+      "object_storage_config",
+      "p2p",
+      "rpc_config",
+      "transaction_deny_config",
+      "validator_client_monitor_config",
+      "verifier_signing_config"
+    ]
+  },
+  "sui-single-node-benchmark": {
+    "path": "crates/sui-single-node-benchmark",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-core-types",
+      "move-symbol-pool",
+      "sui-config",
+      "sui-core",
+      "sui-macros",
+      "sui-move-build",
+      "sui-protocol-config",
+      "sui-simulator",
+      "sui-storage",
+      "sui-test-transaction-builder",
+      "sui-transaction-checks",
+      "sui-types",
+      "telemetry-subscribers"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "command",
+      "workload"
+    ]
+  },
+  "sui-transaction-builder": {
+    "path": "crates/sui-transaction-builder",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "sui-json",
+      "sui-json-rpc-types",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-open-rpc-macros": {
+    "path": "crates/sui-open-rpc-macros",
+    "description": "",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": []
+  },
+  "sui-cluster-test": {
+    "path": "crates/sui-cluster-test",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "shared-crypto",
+      "sui-config",
+      "sui-core",
+      "sui-faucet",
+      "sui-graphql-rpc",
+      "sui-indexer",
+      "sui-json",
+      "sui-json-rpc-types",
+      "sui-keys",
+      "sui-move-build",
+      "sui-pg-db",
+      "sui-sdk",
+      "sui-swarm",
+      "sui-swarm-config",
+      "sui-test-transaction-builder",
+      "sui-types",
+      "telemetry-subscribers",
+      "test-cluster"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "cluster",
+      "config",
+      "faucet",
+      "helper",
+      "test_case",
+      "wallet_client"
+    ]
+  },
+  "sui-tls": {
+    "path": "crates/sui-tls",
+    "description": "tools for rustls-based certificate generation and verification",
+    "deps": [],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "acceptor",
+      "certgen",
+      "verifier"
+    ]
+  },
+  "sui-package-resolver": {
+    "path": "crates/sui-package-resolver",
+    "description": "",
+    "deps": [
+      "move-binary-format",
+      "move-command-line-common",
+      "move-compiler",
+      "move-core-types",
+      "sui-move-build",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "error"
+    ]
+  },
+  "dag-visualizer": {
+    "path": "notes/experiments/dag-visualizer",
+    "description": "",
+    "deps": [
+      "consensus-study"
+    ],
+    "bin": false,
+    "entry": "src/main.rs",
+    "top_modules": []
+  },
+  "simple-token-chain": {
+    "path": "notes/experiments/simple-token-chain",
+    "description": "",
+    "deps": [
+      "consensus-framework"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "error",
+      "executor",
+      "node",
+      "rpc",
+      "types"
+    ]
+  },
+  "consensus-framework": {
+    "path": "notes/experiments/consensus-framework",
+    "description": "",
+    "deps": [
+      "consensus-config",
+      "consensus-core",
+      "consensus-types",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "traits",
+      "types",
+      "error",
+      "mysticeti_adapter"
+    ]
+  },
+  "consensus-study": {
+    "path": "notes/experiments/consensus-poc/consensus-study",
+    "description": "",
+    "deps": [
+      "consensus-config",
+      "consensus-core",
+      "consensus-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "dag_builder"
+    ]
+  },
+  "dex-rollup": {
+    "path": "notes/experiments/dex-rollup",
+    "description": "",
+    "deps": [
+      "consensus-framework",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "balance",
+      "engine",
+      "error",
+      "fraud_proof",
+      "orderbook",
+      "sequencer",
+      "types"
+    ]
+  },
+  "rust-client": {
+    "path": "examples/regulated-coin/rust-client",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "shared-crypto",
+      "sui-config",
+      "sui-keys",
+      "sui-sdk"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "gas",
+      "tx_run"
+    ]
+  },
+  "tic-tac-toe": {
+    "path": "examples/tic-tac-toe/cli",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "shared-crypto",
+      "sui-keys",
+      "sui-sdk",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "command"
+    ]
+  },
+  "basic-sui-indexer": {
+    "path": "examples/rust/basic-sui-indexer",
+    "description": "",
+    "deps": [
+      "sui-indexer-alt-framework"
+    ],
+    "bin": false,
+    "entry": "src/main.rs",
+    "top_modules": [
+      "models",
+      "handlers",
+      "schema"
+    ]
+  },
+  "walrus-attributes-indexer": {
+    "path": "examples/rust/walrus-attributes-indexer",
+    "description": "",
+    "deps": [
+      "move-core-types",
+      "sui-indexer-alt-framework"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "schema",
+      "storage",
+      "types",
+      "handlers"
+    ]
+  },
+  "clickhouse-sui-indexer": {
+    "path": "examples/rust/clickhouse-sui-indexer",
+    "description": "",
+    "deps": [
+      "sui-indexer-alt-framework",
+      "sui-indexer-alt-framework-store-traits",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/main.rs",
+    "top_modules": [
+      "handlers",
+      "store"
+    ]
+  },
+  "custom-indexer": {
+    "path": "examples/custom-indexer/rust",
+    "description": "",
+    "deps": [],
+    "bin": true,
+    "entry": null,
+    "top_modules": []
+  },
+  "sui-execution": {
+    "path": "sui-execution",
+    "description": "Multiplexer to choose between multiple versions of sui and move execution crates.",
+    "deps": [
+      "move-abstract-interpreter-v2",
+      "move-binary-format",
+      "move-bytecode-verifier-meter",
+      "move-bytecode-verifier-v0",
+      "move-bytecode-verifier-v1",
+      "move-bytecode-verifier-v2",
+      "move-trace-format",
+      "move-vm-config",
+      "move-vm-runtime-v0",
+      "move-vm-runtime-v1",
+      "move-vm-runtime-v2",
+      "move-vm-types-v0",
+      "move-vm-types-v1",
+      "move-vm-types-v2",
+      "sui-adapter-latest",
+      "sui-adapter-v0",
+      "sui-adapter-v1",
+      "sui-adapter-v2",
+      "sui-move-natives-latest",
+      "sui-move-natives-v0",
+      "sui-move-natives-v1",
+      "sui-move-natives-v2",
+      "sui-protocol-config",
+      "sui-types",
+      "sui-verifier-latest",
+      "sui-verifier-v0",
+      "sui-verifier-v1",
+      "sui-verifier-v2"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "executor",
+      "verifier",
+      "latest",
+      "v0",
+      "v1",
+      "v2",
+      "tests"
+    ]
+  },
+  "sui-adapter-v1": {
+    "path": "sui-execution/v1/sui-adapter",
+    "description": "Adapter and accompanying CLI for local sui development",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config",
+      "move-vm-profiler",
+      "move-vm-runtime",
+      "move-vm-types",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "adapter",
+      "error",
+      "execution_engine",
+      "execution_mode",
+      "execution_value",
+      "gas_charger",
+      "gas_meter",
+      "programmable_transactions",
+      "temporary_store",
+      "type_layout_resolver",
+      "type_resolver"
+    ]
+  },
+  "sui-verifier-v1": {
+    "path": "sui-execution/v1/sui-verifier",
+    "description": "Move framework for Sui platform",
+    "deps": [
+      "move-abstract-stack",
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "verifier",
+      "entry_points_verifier",
+      "global_storage_access_verifier",
+      "id_leak_verifier",
+      "meter",
+      "one_time_witness_verifier",
+      "private_generics",
+      "struct_with_key_verifier"
+    ]
+  },
+  "sui-move-natives-v1": {
+    "path": "sui-execution/v1/sui-move-natives",
+    "description": "Move framework for sui platform",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-stdlib-natives",
+      "move-vm-runtime",
+      "move-vm-types",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "address",
+      "crypto",
+      "dynamic_field",
+      "event",
+      "object",
+      "object_runtime",
+      "test_scenario",
+      "test_utils",
+      "transfer",
+      "tx_context",
+      "types",
+      "validator"
+    ]
+  },
+  "sui-adapter-v0": {
+    "path": "sui-execution/v0/sui-adapter",
+    "description": "Adapter and accompanying CLI for local sui development",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config",
+      "move-vm-profiler",
+      "move-vm-runtime",
+      "move-vm-types",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "adapter",
+      "error",
+      "execution_engine",
+      "execution_mode",
+      "execution_value",
+      "gas_charger",
+      "gas_meter",
+      "programmable_transactions",
+      "temporary_store",
+      "type_layout_resolver",
+      "type_resolver"
+    ]
+  },
+  "sui-verifier-v0": {
+    "path": "sui-execution/v0/sui-verifier",
+    "description": "Move framework for Sui platform",
+    "deps": [
+      "move-abstract-stack",
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "verifier",
+      "entry_points_verifier",
+      "global_storage_access_verifier",
+      "id_leak_verifier",
+      "meter",
+      "one_time_witness_verifier",
+      "private_generics",
+      "struct_with_key_verifier"
+    ]
+  },
+  "sui-move-natives-v0": {
+    "path": "sui-execution/v0/sui-move-natives",
+    "description": "Move framework for sui platform",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-stdlib-natives",
+      "move-vm-runtime",
+      "move-vm-types",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "address",
+      "crypto",
+      "dynamic_field",
+      "event",
+      "object",
+      "object_runtime",
+      "test_scenario",
+      "test_utils",
+      "transfer",
+      "tx_context",
+      "types",
+      "validator"
+    ]
+  },
+  "sui-adapter-latest": {
+    "path": "sui-execution/latest/sui-adapter",
+    "description": "Adapter and accompanying CLI for local sui development",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-regex-borrow-graph",
+      "move-trace-format",
+      "move-vm-config",
+      "move-vm-profiler",
+      "move-vm-runtime",
+      "move-vm-types",
+      "mysten-common",
+      "mysten-metrics",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "adapter",
+      "data_store",
+      "error",
+      "execution_engine",
+      "execution_mode",
+      "execution_value",
+      "gas_charger",
+      "gas_meter",
+      "programmable_transactions",
+      "static_programmable_transactions",
+      "temporary_store",
+      "type_layout_resolver",
+      "type_resolver"
+    ]
+  },
+  "sui-verifier-latest": {
+    "path": "sui-execution/latest/sui-verifier",
+    "description": "Move framework for Sui platform",
+    "deps": [
+      "move-abstract-stack",
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "verifier",
+      "entry_points_verifier",
+      "global_storage_access_verifier",
+      "id_leak_verifier",
+      "meter",
+      "one_time_witness_verifier",
+      "private_generics",
+      "private_generics_verifier_v2",
+      "struct_with_key_verifier"
+    ]
+  },
+  "sui-move-natives-latest": {
+    "path": "sui-execution/latest/sui-move-natives",
+    "description": "Move framework for sui platform",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-stdlib-natives",
+      "move-vm-runtime",
+      "move-vm-types",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "accumulator",
+      "address",
+      "config",
+      "crypto",
+      "dynamic_field",
+      "event",
+      "funds_accumulator",
+      "object",
+      "object_runtime",
+      "protocol_config",
+      "random",
+      "test_scenario",
+      "test_utils",
+      "transaction_context",
+      "transfer",
+      "tx_context",
+      "types",
+      "validator"
+    ]
+  },
+  "sui-adapter-v2": {
+    "path": "sui-execution/v2/sui-adapter",
+    "description": "Adapter and accompanying CLI for local sui development",
+    "deps": [
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config",
+      "move-vm-profiler",
+      "move-vm-runtime",
+      "move-vm-types",
+      "sui-macros",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "adapter",
+      "error",
+      "execution_engine",
+      "execution_mode",
+      "execution_value",
+      "gas_charger",
+      "gas_meter",
+      "programmable_transactions",
+      "temporary_store",
+      "type_layout_resolver",
+      "type_resolver"
+    ]
+  },
+  "sui-verifier-v2": {
+    "path": "sui-execution/v2/sui-verifier",
+    "description": "Move framework for Sui platform",
+    "deps": [
+      "move-abstract-stack",
+      "move-binary-format",
+      "move-bytecode-utils",
+      "move-bytecode-verifier",
+      "move-bytecode-verifier-meter",
+      "move-core-types",
+      "move-vm-config",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "verifier",
+      "entry_points_verifier",
+      "global_storage_access_verifier",
+      "id_leak_verifier",
+      "meter",
+      "one_time_witness_verifier",
+      "private_generics",
+      "struct_with_key_verifier"
+    ]
+  },
+  "sui-move-natives-v2": {
+    "path": "sui-execution/v2/sui-move-natives",
+    "description": "Move framework for sui platform",
+    "deps": [
+      "move-binary-format",
+      "move-core-types",
+      "move-stdlib-natives",
+      "move-vm-runtime",
+      "move-vm-types",
+      "sui-protocol-config",
+      "sui-types"
+    ],
+    "bin": false,
+    "entry": "src/lib.rs",
+    "top_modules": [
+      "address",
+      "crypto",
+      "dynamic_field",
+      "event",
+      "object",
+      "object_runtime",
+      "test_scenario",
+      "test_utils",
+      "transfer",
+      "tx_context",
+      "types",
+      "validator"
+    ]
+  },
+  "sui-execution-cut": {
+    "path": "sui-execution/cut",
+    "description": "",
+    "deps": [],
+    "bin": true,
+    "entry": "src/main.rs",
+    "top_modules": [
+      "args",
+      "path",
+      "plan"
+    ]
+  }
+}

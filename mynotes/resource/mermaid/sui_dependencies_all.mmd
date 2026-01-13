@@ -1,0 +1,25 @@
+flowchart LR
+  sui["SuiCrates"]
+  move["MoveCrates"]
+  consensus["Consensus"]
+  mysten["MystenInfra"]
+  typed_store["TypedStore"]
+  other["Other"]
+  sui -->|"277"| move
+  sui -->|"111"| other
+  other -->|"68"| move
+  sui -->|"56"| mysten
+  other -->|"49"| sui
+  consensus -->|"9"| sui
+  sui -->|"9"| typed_store
+  sui -->|"8"| consensus
+  consensus -->|"6"| mysten
+  move -->|"4"| other
+  consensus -->|"4"| other
+  other -->|"4"| mysten
+  mysten -->|"3"| sui
+  other -->|"3"| consensus
+  consensus -->|"2"| typed_store
+  mysten -->|"2"| other
+  typed_store -->|"2"| mysten
+  typed_store -->|"1"| sui
