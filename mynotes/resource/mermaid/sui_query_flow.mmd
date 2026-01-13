@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant Client as 客户端
+    participant RPC as JSON-RPC API
+    participant Auth as sui-core
+    participant Cache as sharded_lru<br/>(64个分片)
+    participant Store as authority_store
+    participant RocksDB as RocksDB
+
+    Client->>RPC: 1. GET /sui_getObject<br/>(object_id)
+    RPC->>Auth: 2. get_object(object_id)
+
+    Auth->>Cache: 3. 查询缓存<br/>(hash(object_id) % 64)
+
+    alt 缓存命中 (95%+)
+        Cache-->>Auth: 4a. 返回对象
+        Note over Cache: 命中,直接返回
+    else 缓存未命中
+        Auth->>Store: 4b. get_object_by_key()
+        Store->>RocksDB: 5. get_cf(objects, key)
+        RocksDB-->>Store: 6. 对象数据 (BCS)
+        Store->>Store: 7. 反序列化
+        Store-->>Auth: 8. 返回对象
+        Auth->>Cache: 9. 更新缓存
+    end
+
+    Auth-->>RPC: 10. 对象数据
+    RPC->>RPC: 11. 转换为 JSON
+    RPC-->>Client: 12. JSON 响应

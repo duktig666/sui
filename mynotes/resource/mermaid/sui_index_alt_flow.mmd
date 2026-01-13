@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant Node as sui-node
+    participant Ingestion as sui-data-ingestion
+    participant Framework as sui-indexer-alt<br/>-framework
+    participant Schema as sui-indexer-alt<br/>-schema
+    participant PG as PostgreSQL
+    participant API as sui-indexer-alt<br/>-jsonrpc
+    participant Client as 客户端
+
+    Note over Node: 每 ~3秒生成一个 Checkpoint
+    Node->>Node: 1. 生成 Checkpoint<br/>(包含 1000+ 交易)
+    Node->>Ingestion: 2. 推送 Checkpoint 数据
+
+    Ingestion->>Ingestion: 3. 解析 Checkpoint
+    loop 每个交易
+        Ingestion->>Framework: 4. process_transaction()
+        Framework->>Framework: 5. 提取事件
+        Framework->>Framework: 6. 提取对象变更
+        Framework->>Schema: 7. 转换为数据库模型
+        Schema->>PG: 8. INSERT INTO transactions
+        Schema->>PG: 9. INSERT INTO events
+        Schema->>PG: 10. INSERT INTO objects
+    end
+
+    Ingestion-->>Node: 11. 确认 Checkpoint 已处理
+
+    Note over Client: 稍后,客户端查询历史
+    Client->>API: 12. queryTransactionBlocks()
+    API->>PG: 13. SELECT * FROM transactions<br/>WHERE ...
+    PG-->>API: 14. 查询结果
+    API-->>Client: 15. JSON 响应

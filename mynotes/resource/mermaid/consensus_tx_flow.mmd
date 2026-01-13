@@ -1,0 +1,57 @@
+sequenceDiagram
+    participant Client as 客户端
+    participant RPC as RPC节点
+    participant Auth as 验证者<br/>(sui-core)
+    participant Consensus as 共识层<br/>(consensus-core)
+    participant DAG as DAG状态
+    participant Scheduler as 执行调度器<br/>(execution_scheduler)
+    participant Exec as 执行层
+    participant Store as 存储层
+
+    Note over Client: 第一阶段: 提交到共识
+    Client->>RPC: 1. 提交交易
+    RPC->>Auth: 2. 转发到验证者
+    Auth->>Auth: 3. 检查对象类型<br/>(包含共享对象)
+    Auth->>Auth: 4. 验证签名
+    Auth->>Consensus: 5. submit_to_consensus(tx)
+
+    Note over Consensus: 第二阶段: Mysticeti 共识 (~400ms)
+    Consensus->>DAG: 6. 创建区块<br/>(包含交易)
+
+    Note over Consensus: Round 3n+1: 领导者提议
+    Consensus->>Consensus: 7. 领导者广播区块
+
+    Note over Consensus: Round 3n+2: 验证者投票
+    Consensus->>Consensus: 8. 验证者投票 (2f+1)
+
+    Note over Consensus: Round 3n+3: 决策和提交
+    Consensus->>DAG: 9. 更新 DAG 状态
+    Consensus->>Consensus: 10. Wave-based 线性化
+    Consensus-->>Auth: 11. CommittedSubDag
+
+    Note over Auth: 第三阶段: 并行执行调度
+    Auth->>Scheduler: 12. schedule_transactions()
+
+    loop 每个交易
+        Scheduler->>Scheduler: 13. 构建依赖图
+        Scheduler->>Scheduler: 14. Barrier 依赖检测
+
+        alt 无依赖
+            Scheduler->>Exec: 15a. 立即执行 (并行)
+        else 有依赖
+            Scheduler->>Scheduler: 15b. 等待 Barrier
+            Scheduler->>Exec: 15c. 顺序执行
+        end
+    end
+
+    Note over Exec: 第四阶段: Move VM 执行
+    Exec->>Exec: 16. 加载共享对象
+    Exec->>Exec: 17. 执行 Move 代码
+    Exec->>Exec: 18. 计量 Gas
+    Exec->>Exec: 19. 生成 Effects
+
+    Exec->>Store: 20. 持久化对象和 Effects
+    Store-->>Auth: 21. 确认
+    Auth-->>Client: 22. 返回 Effects
+
+    Note over Client: 交易完成

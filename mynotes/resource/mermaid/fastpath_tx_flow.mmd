@@ -1,0 +1,47 @@
+sequenceDiagram
+    participant Client as 客户端<br/>(sui-sdk)
+    participant RPC as RPC节点<br/>(sui-json-rpc)
+    participant Auth1 as 验证者1<br/>(sui-core)
+    participant Auth2 as 验证者2
+    participant Auth3 as 验证者3
+    participant Exec as 执行层<br/>(sui-execution)
+    participant VM as Move VM
+    participant Store as 存储层<br/>(RocksDB)
+
+    Note over Client: 第一阶段: 签名收集
+    Client->>RPC: 1. 提交交易 (Transaction)
+    RPC->>Auth1: 2. 转发到验证者
+    RPC->>Auth2: 2. 转发到验证者
+    RPC->>Auth3: 2. 转发到验证者
+
+    Auth1->>Auth1: 3. 检查对象类型<br/>(仅拥有对象)
+    Auth1->>Auth1: 4. 验证签名
+    Auth1->>Auth1: 5. 检查对象版本<br/>(防止双花)
+    Auth1->>Auth1: 6. 锁定对象
+    Auth1-->>Client: 7. 返回验证者签名
+
+    Auth2->>Auth2: 3-6. 同样的验证流程
+    Auth2-->>Client: 7. 返回验证者签名
+
+    Auth3->>Auth3: 3-6. 同样的验证流程
+    Auth3-->>Client: 7. 返回验证者签名
+
+    Note over Client: 收集到 2f+1 (3/4) 签名
+
+    Note over Client: 第二阶段: 执行
+    Client->>Auth1: 8. 提交证书 (Certificate)
+    Auth1->>Exec: 9. execute_transaction()
+    Exec->>VM: 10. 加载输入对象
+    Exec->>VM: 11. 执行 Move 代码
+    VM->>VM: 12. 计量 Gas
+    VM-->>Exec: 13. 返回执行结果
+
+    Exec->>Exec: 14. 分配 Lamport 版本
+    Exec->>Store: 15. 写入新对象版本
+    Store->>Store: 16. 持久化到 RocksDB
+    Store-->>Exec: 17. 确认
+
+    Exec-->>Auth1: 18. 返回 Effects
+    Auth1-->>Client: 19. 返回 TransactionEffects
+
+    Note over Client: 交易完成,等待 Checkpoint
