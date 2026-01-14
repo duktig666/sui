@@ -12,15 +12,17 @@ DEX执行层如何落地？
 
 Sui
 1. 对象模型
-2. 模块依赖
-3. 节点运行 - 使用方式
+2. ✅ 模块依赖
+3. ✅ 节点运行 - 使用方式
 4. Matemask - EVM Address
 5. 实现路径
 
 
 细节问题：
-1. Object所有权管理，不用move在外部是否可以管理
-2. sui-transaction-builder 前端还是服务端或节点内部调用
-3. sui-indexer-alt 数据来源和数据流向
-4. fastpath 客户端提交Certificate - 验证者调用执行层？
+1. ✅ Object所有权管理，不用moveVM在外部是否可以管理，即是否可以使用Object的特性和并行执行？
+2. ✅ sui-transaction-builder模块 前端还是服务端或节点内部调用
+    Rust 客户端侧的“交易构建工具库”，sui-transaction-builder 既可能是客户端用，也可能被 RPC 服务端用来提供“构建交易”接口。
+3. sui-indexer 数据来源、数据流向以及索引内容
+4. ✅ fastpath 客户端提交Certificate - 验证者调用执行层，为什么是客户端在收集签名和提交证书？
 5. sui-adapter
+6. sui-authority-aggregation

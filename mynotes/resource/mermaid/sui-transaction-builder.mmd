@@ -1,0 +1,40 @@
+sequenceDiagram
+  participant Client as Client_RustOrTS
+  participant TxBuilder as sui_transaction_builder
+  participant Signer as ClientSigner
+  participant Rpc as sui_json_rpc
+  participant Orch as sui_core::TransactionOrchestrator
+  participant Auth as sui_core::AuthorityState
+  participant Exec as sui_execution::Executor
+  participant Store as sui_storage
+  participant Indexer as sui_indexer_alt
+
+  Note over Client,TxBuilder: Build
+  Client->>TxBuilder: 查询对象/选gas/组PTB
+  TxBuilder-->>Client: TransactionData_bytes
+
+  Note over Client,Signer: Sign
+  Client->>Signer: sign(TransactionData)
+  Signer-->>Client: signatures + Transaction
+
+  Note over Client,Rpc: Submit
+  Client->>Rpc: executeTransactionBlock(tx_bytes,sigs)
+
+  Note over Rpc,Orch: DriveToFinality
+  Rpc->>Orch: execute_transaction_block(request)
+  Orch->>Auth: submit/execute_path
+
+  Note over Auth,Exec: Execute
+  Auth->>Exec: execute_transaction_to_effects
+  Exec->>Store: read/write objects, effects, events
+  Store-->>Exec: ok
+  Exec-->>Auth: effects/events
+  Auth-->>Orch: response
+
+  Note over Orch,Rpc: Return
+  Orch-->>Rpc: ExecuteTransactionResponse
+  Rpc-->>Client: SuiTransactionBlockResponse
+
+  Note over Store,Indexer: Index
+  Store-->>Indexer: checkpoints/effects/events stream
+  Indexer-->>Client: query/read services

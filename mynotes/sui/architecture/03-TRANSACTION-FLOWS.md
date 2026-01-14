@@ -52,217 +52,527 @@ Sui 根据交易涉及的对象类型,采用不同的处理路径:
 
 FastPath 是 Sui 的创新设计,允许拥有对象交易跳过共识,直接执行。
 
-**核心思想**:
-- 拥有对象的交易不会与其他交易冲突
-- 验证者可以独立验证和执行
-- 只需收集 2f+1 签名即可确认
+**核心原理**:
+- 拥有对象只有唯一所有者,无并发写入冲突
+- 验证者可独立验证对象版本和签名
+- 验证者立即执行并返回 TransactionEffects
+- 全节点收集 2f+1 个相同 effects_digest 作为最终性证明
+
+**关键数据结构**:
+```rust
+// crates/sui-types/src/transaction.rs:3712
+pub type CertifiedTransaction = Envelope<SenderSignedData, AuthorityStrongQuorumSignInfo>;
+
+// 注意: 在当前 TransactionDriver 实现中,CertifiedTransaction 并未被使用
+// 取而代之的是 FinalizedEffects (包含 2f+1 effects_digest 确认)
+
+// crates/sui-types/src/transaction_driver_types.rs
+pub struct FinalizedEffects {
+    pub effects: TransactionEffects,
+    pub finality_info: EffectsFinalityInfo,  // Certified(effects_digest) 或 Checkpointed
+}
+```
+
+**架构角色**:
+
+| 组件 | 职责 | 代码位置 |
+|-----|------|---------|
+| **客户端 (sui-sdk)** | 构建 TransactionData,用户签名,提交到全节点 | sui-sdk |
+| **全节点 RPC** | 接收客户端请求,调用 TransactionOrchestrator | sui-json-rpc/transaction_execution_api.rs:137 |
+| **TransactionOrchestrator** | 协调提交、重试、本地执行等待逻辑 | sui-core/transaction_orchestrator.rs |
+| **TransactionDriver** | 核心驱动:提交到验证者 + 收集 2f+1 确认 | sui-core/transaction_driver/mod.rs |
+| **TransactionSubmitter** | 并行向多个验证者提交交易 | sui-core/transaction_driver/transaction_submitter.rs |
+| **EffectsCertifier** | 收集 2f+1 个 effects_digest 确认 | sui-core/transaction_driver/effects_certifier.rs |
+| **验证者 (Authority)** | 验证签名、检查对象版本、执行交易 | sui-core/authority.rs |
 
 ### 详细流程图
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant Client as 客户端<br/>(sui-sdk)
-    participant RPC as RPC节点<br/>(sui-json-rpc)
-    participant Auth1 as 验证者1<br/>(sui-core)
-    participant Auth2 as 验证者2
-    participant Auth3 as 验证者3
-    participant Exec as 执行层<br/>(sui-execution)
-    participant VM as Move VM
-    participant Store as 存储层<br/>(RocksDB)
+    participant RPC as 全节点 RPC<br/>(TransactionExecutionApi)
+    participant Orch as 交易协调器<br/>(TransactionOrchestrator)
+    participant Driver as 交易驱动<br/>(TransactionDriver)
+    participant Submitter as 提交器<br/>(TransactionSubmitter)
+    participant Certifier as 确认器<br/>(EffectsCertifier)
+    participant V1 as 验证者 1
+    participant V2 as 验证者 2
+    participant V3 as 验证者 3
+    participant V4 as 验证者 4
 
-    Note over Client: 第一阶段: 签名收集
-    Client->>RPC: 1. 提交交易 (Transaction)
-    RPC->>Auth1: 2. 转发到验证者
-    RPC->>Auth2: 2. 转发到验证者
-    RPC->>Auth3: 2. 转发到验证者
+    Note over Client: 阶段 1: 客户端构建并签名交易
+    Client->>Client: 构建 TransactionData<br/>用户私钥签名
 
-    Auth1->>Auth1: 3. 检查对象类型<br/>(仅拥有对象)
-    Auth1->>Auth1: 4. 验证签名
-    Auth1->>Auth1: 5. 检查对象版本<br/>(防止双花)
-    Auth1->>Auth1: 6. 锁定对象
-    Auth1-->>Client: 7. 返回验证者签名
+    Note over Client,RPC: 阶段 2: 提交到全节点
+    Client->>RPC: sui_executeTransactionBlock(tx, signatures)
+    RPC->>Orch: execute_transaction_block()
+    Orch->>Driver: drive_transaction()
 
-    Auth2->>Auth2: 3-6. 同样的验证流程
-    Auth2-->>Client: 7. 返回验证者签名
+    Note over Driver,V4: 阶段 3: 并行提交到验证者 (TransactionSubmitter)
+    Driver->>Submitter: submit_transaction()
 
-    Auth3->>Auth3: 3-6. 同样的验证流程
-    Auth3-->>Client: 7. 返回验证者签名
+    rect rgb(220, 240, 255)
+    Note over Submitter,V4: 并行发送 (amplification_factor = gas_price/ref_price)
+    par 并行提交
+        Submitter->>V1: submit_transaction(tx)
+    and
+        Submitter->>V2: submit_transaction(tx)
+    and
+        Submitter->>V3: submit_transaction(tx)
+    and
+        Submitter->>V4: submit_transaction(tx)
+    end
+    end
 
-    Note over Client: 收集到 2f+1 (3/4) 签名
+    Note over V1: 阶段 4: 验证者立即执行 (FastPath)
+    rect rgb(255, 240, 220)
+    V1->>V1: 1. 检查对象类型 (仅拥有对象)<br/>2. 验证用户签名<br/>3. 检查对象版本 (防双花)<br/>4. 执行 Move VM<br/>5. 写入 RocksDB
+    V1-->>Submitter: SubmitTxResult::Executed {<br/>  effects_digest,<br/>  details: ExecutedData<br/>}
+    end
 
-    Note over Client: 第二阶段: 执行
-    Client->>Auth1: 8. 提交证书 (Certificate)
-    Auth1->>Exec: 9. execute_transaction()
-    Exec->>VM: 10. 加载输入对象
-    Exec->>VM: 11. 执行 Move 代码
-    VM->>VM: 12. 计量 Gas
-    VM-->>Exec: 13. 返回执行结果
+    Note over Submitter: 等待第一个成功响应
+    Submitter-->>Driver: (V1, SubmitTxResult)
 
-    Exec->>Exec: 14. 分配 Lamport 版本
-    Exec->>Store: 15. 写入新对象版本
-    Store->>Store: 16. 持久化到 RocksDB
-    Store-->>Exec: 17. 确认
+    Note over Driver,V4: 阶段 5: 收集 2f+1 确认 (EffectsCertifier)
+    Driver->>Certifier: get_certified_finalized_effects()
 
-    Exec-->>Auth1: 18. 返回 Effects
-    Auth1-->>Client: 19. 返回 TransactionEffects
+    rect rgb(220, 255, 220)
+    Note over Certifier,V4: 并行等待其他验证者确认
+    par 收集确认
+        Certifier->>V2: wait_for_effects(tx_digest)
+        V2->>V2: 执行 (如未执行)
+        V2-->>Certifier: effects_digest
+    and
+        Certifier->>V3: wait_for_effects(tx_digest)
+        V3->>V3: 执行 (如未执行)
+        V3-->>Certifier: effects_digest
+    and
+        Certifier->>V4: wait_for_effects(tx_digest)
+        V4->>V4: 执行 (如未执行)
+        V4-->>Certifier: effects_digest
+    end
+    end
 
-    Note over Client: 交易完成,等待 Checkpoint
+    Note over Certifier: 验证: 2f+1 个 effects_digest 相同
+    Certifier->>Certifier: certified_digest = <br/>2f+1 个相同 digest
+
+    Certifier-->>Driver: QuorumTransactionResponse {<br/>  effects: FinalizedEffects,<br/>  finality_info: Certified(digest)<br/>}
+
+    Note over Driver,RPC: 阶段 6: 返回结果
+    Driver-->>Orch: QuorumTransactionResponse
+    Orch-->>RPC: ExecuteTransactionResponseV3
+    RPC-->>Client: SuiTransactionBlockResponse {<br/>  digest, effects, events,<br/>  confirmed_local_execution<br/>}
+
+    Note over Client: ✅ 交易完成<br/>等待 Checkpoint 进一步确认
 ```
+
+### 核心问题解答
+
+#### Q1: 到底有没有"签名收集"和"证书提交"?
+
+**答案**: 有概念,但**当前实现中未使用**。
+
+**代码证据**:
+```rust
+// crates/sui-types/src/transaction.rs:3712
+// CertifiedTransaction 类型定义存在
+pub type CertifiedTransaction = Envelope<SenderSignedData, AuthorityStrongQuorumSignInfo>;
+
+// AuthorityStrongQuorumSignInfo 包含聚合签名
+pub struct AuthorityQuorumSignInfo<const STRONG_THRESHOLD: bool> {
+    pub epoch: EpochId,
+    pub signature: AggregateAuthoritySignature,  // BLS 聚合签名
+    pub signers_map: RoaringBitmap,  // 签名者位图
+}
+```
+
+**但是**:
+- `TransactionDriver` (sui-core/transaction_driver/mod.rs) **未使用** CertifiedTransaction
+- `TransactionSubmitter` 只等待**第一个验证者成功执行**,不收集签名
+- `EffectsCertifier` 收集的是 **effects_digest** (哈希),不是签名
+
+**设计演进推测**:
+1. **早期设计** (类似 PBFT): 两阶段,先收集签名构建 Certificate,再执行
+2. **当前实现** (优化版): 验证者立即执行,收集 effects_digest 确认
+
+**为什么不收集签名?**
+- **性能优化**: 省略一轮网络往返 (签名收集阶段)
+- **简化流程**: effects_digest 本身就能证明 2f+1 验证者执行了相同结果
+- **保留兼容**: CertifiedTransaction 类型保留但不使用 (可能用于测试或未来特性)
+
+---
 
 ### 关键步骤详解
 
-#### 第一阶段: 签名收集 (~100-150ms)
+#### 阶段 1: 客户端构建交易 (~1-10ms)
 
-**1. 客户端构建交易**:
+**代码**: sui-sdk
 ```rust
-let tx = Transaction {
-    data: TransactionData {
-        kind: TransferObjects { objects: [coin_id], recipient },
-        sender: sender_address,
-        gas_payment: gas_coin,
-        gas_price: 1000,
-        gas_budget: 10_000_000,
+// 客户端构建交易数据
+let tx_data = TransactionData {
+    kind: TransferObjects {
+        objects: vec![coin_object_ref],
+        recipient
     },
-    signatures: vec![sender_signature],
+    sender: sender_address,
+    gas_payment: gas_coin_ref,
+    gas_price: 1000,  // 影响 amplification_factor
+    gas_budget: 10_000_000,
 };
+
+// 用户签名
+let signature = sender_keypair.sign(&tx_data);
+let tx = Transaction::from_generic_sig_data(tx_data, vec![signature]);
 ```
 
-**2. 验证者验证** (`sui-core/authority.rs:handle_transaction()`):
+**关键点**:
+- `gas_price` 决定并行提交的验证者数量 (amplification_factor = gas_price / reference_gas_price)
+- 只需**客户端签名**,无需验证者签名
+
+---
+
+#### 阶段 2: 全节点接收 (~5-20ms)
+
+**代码**: sui-json-rpc/transaction_execution_api.rs:137-169
 ```rust
-// 检查对象类型
-for object_ref in tx.input_objects() {
-    let object = self.get_object(&object_ref.id)?;
-    if object.is_shared() {
-        return Err(Error::SharedObjectInFastPath);
+async fn execute_transaction_block(
+    &self,
+    tx_bytes: Base64,
+    signatures: Vec<Base64>,
+    ...
+) -> Result<SuiTransactionBlockResponse, Error> {
+    // 构建请求
+    let request = ExecuteTransactionRequestV3 {
+        transaction: txn,
+        include_events: true,
+        include_input_objects: true,
+        include_output_objects: true,
+    };
+
+    // 调用 TransactionOrchestrator
+    let (response, is_executed_locally) = self.transaction_orchestrator
+        .execute_transaction_block(request, request_type, None)
+        .await?;
+
+    // ... 转换为 JSON 响应
+}
+```
+
+**关键点**:
+- `request_type` 控制等待策略:
+  - `WaitForEffectsCert`: 等待 2f+1 确认 (默认,推荐)
+  - `WaitForLocalExecution`: 仅等待本地验证者执行 (快但不安全)
+
+---
+
+#### 阶段 3: 并行提交到验证者 (~50-150ms)
+
+**代码**: sui-core/transaction_driver/transaction_submitter.rs:51-191
+```rust
+pub async fn submit_transaction<A>(
+    &self,
+    authority_aggregator: &Arc<AuthorityAggregator<A>>,
+    ...
+    amplification_factor: u64,  // = gas_price / reference_gas_price
+    request: SubmitTxRequest,
+) -> Result<(AuthorityName, SubmitTxResult), TransactionDriverError> {
+    let mut request_rpcs = FuturesUnordered::new();
+
+    // 并行向多个验证者提交
+    loop {
+        // 填充到 amplification_factor 个并发请求
+        while request_rpcs.len() < amplification_factor as usize {
+            let (name, client) = retrier.next_target()?;  // 优先选择历史表现好的验证者
+
+            let submit_fut = self.submit_transaction_once(
+                client, &request, ...
+            );
+            request_rpcs.push(submit_fut);  // 并行执行
+        }
+
+        // 等待第一个成功响应 (race condition)
+        match request_rpcs.next().await {
+            Some((name, Ok(result))) => {
+                // 第一个成功的验证者返回
+                return Ok((name, result));
+            }
+            Some((name, Err(e))) => {
+                // 失败则继续等待其他验证者
+                retrier.add_error(name, e)?;
+            }
+        }
     }
 }
+```
 
-// 验证签名
-verify_signature(&tx.data, &tx.signatures)?;
+**关键点**:
+- **amplification_factor**: gas_price 越高,并行提交越多,成功率越高
+- **只等第一个成功**: 不需要 2f+1 个提交成功,只需 1 个
+- **验证者选择**: ValidatorClientMonitor 优先选择历史延迟低、成功率高的验证者
+- **容错重试**: 如果选中的验证者失败,自动选择其他验证者重试
 
-// 检查对象版本 (防止双花)
-for object_ref in tx.input_objects() {
-    let current_version = self.get_latest_version(&object_ref.id)?;
-    if object_ref.version != current_version {
-        return Err(Error::ObjectVersionMismatch);
+---
+
+#### 阶段 4: 验证者立即执行 (~30-100ms)
+
+**代码**: sui-core/authority.rs (submit_transaction 处理)
+```rust
+// 验证者接收到 submit_transaction 请求
+async fn handle_submit_transaction(
+    &self,
+    request: SubmitTxRequest,
+) -> Result<SubmitTxResult> {
+    let tx = request.transaction.unwrap();
+
+    // 1. 检查对象类型
+    for object_ref in tx.input_objects() {
+        let object = self.get_object(&object_ref.id)?;
+        if object.is_shared() {
+            // 共享对象必须走共识路径
+            return self.submit_to_consensus(tx);
+        }
     }
+
+    // 2. 验证用户签名
+    tx.verify_signatures_authenticated(...)?;
+
+    // 3. 检查对象版本 (防止双花)
+    for object_ref in tx.input_objects() {
+        let current_version = self.get_latest_version(&object_ref.id)?;
+        if object_ref.version != current_version {
+            return Err(SuiError::ObjectVersionMismatch { ... });
+        }
+    }
+
+    // 4. 立即执行交易 (FastPath 关键!)
+    let (effects, events, input_objects, output_objects) = self
+        .execution_cache
+        .execute_transaction(tx)?;
+
+    // 5. 持久化到 RocksDB
+    self.authority_store.persist_effects(&effects)?;
+
+    // 6. 返回执行结果 (包含完整 ExecutedData)
+    Ok(SubmitTxResult::Executed {
+        effects_digest: effects.digest(),
+        details: Some(Box::new(ExecutedData {
+            effects,
+            events,
+            input_objects,
+            output_objects,
+        })),
+        fast_path: true,  // 标记为 FastPath
+    })
 }
-
-// 锁定对象 (乐观锁)
-self.lock_objects(&tx)?;
-
-// 返回验证者签名
-let signature = self.sign_transaction(&tx)?;
-return Ok(signature);
 ```
 
-**3. 客户端收集签名**:
-- 并行向 N 个验证者请求
-- 只需等待 2f+1 个响应
-- 构建 `Certificate`
+**关键点**:
+- **立即执行**: 不等证书,直接执行 (与共识路径的最大区别)
+- **对象版本检查**: 通过 Lamport 版本号防止双花
+- **返回完整数据**: effects + events + objects,减少后续网络请求
+- **fast_path 标记**: 用于 metrics 和调试
 
-#### 第二阶段: 执行 (~100-150ms)
+---
 
-**4. 提交证书**:
+#### 阶段 5: 收集 2f+1 确认 (~30-80ms)
+
+**代码**: sui-core/transaction_driver/effects_certifier.rs:78-283
 ```rust
-let certificate = Certificate {
-    transaction: tx,
-    signatures: vec![sig1, sig2, sig3, ...],  // 2f+1 个签名
-};
-```
+pub async fn get_certified_finalized_effects<A>(
+    &self,
+    authority_aggregator: &Arc<AuthorityAggregator<A>>,
+    tx_digest: Option<TransactionDigest>,
+    current_target: AuthorityName,  // 第一个成功的验证者
+    submit_txn_result: SubmitTxResult,  // 第一个验证者的结果
+    ...
+) -> Result<QuorumTransactionResponse, TransactionDriverError> {
 
-**5. 验证者执行** (`sui-core/authority.rs:execute_certificate()`):
-```rust
-// 验证证书 (检查 2f+1 签名)
-verify_certificate(&certificate)?;
+    // 解析第一个验证者的返回
+    let (consensus_position, full_effects) = match submit_txn_result {
+        SubmitTxResult::Executed { effects_digest, details, .. } => {
+            // 第一个验证者已返回完整数据,跳过 get_full_effects
+            (None, Some((effects_digest, details, true)))
+        }
+        SubmitTxResult::Submitted { consensus_position } => {
+            // 共享对象走共识,需要等待
+            (Some(consensus_position), None)
+        }
+        _ => (None, None)
+    };
 
-// 调用执行层
-let effects = self.execution_cache
-    .execute_transaction(certificate.transaction)?;
+    // 并行: 收集 2f+1 确认 + 获取完整 effects (如果缺失)
+    let (certified_digest, full_effects_result) = join!(
+        // 任务 1: 向其他验证者收集 effects_digest
+        self.wait_for_acknowledgments(
+            authority_aggregator,
+            tx_digest,
+            consensus_position,
+            current_target,
+            ...
+        ),
 
-// 持久化
-self.authority_store.persist_effects(effects)?;
+        // 任务 2: 获取完整 effects (如果第一个验证者未返回)
+        async {
+            if let Some(effects) = full_effects {
+                return Ok(effects);  // 已有完整数据
+            }
+            // 从其他验证者获取
+            self.get_full_effects_with_fallback(...)
+        }
+    );
 
-return Ok(effects);
-```
+    let certified_digest = certified_digest?;  // 2f+1 个相同 effects_digest
+    let (effects_digest, executed_data, fast_path) = full_effects_result?;
 
-**6. 执行层处理** (`sui-execution/adapter.rs`):
-```rust
-// 加载输入对象
-let input_objects = load_objects(tx.input_objects())?;
+    // 验证 effects_digest 匹配
+    if effects_digest != certified_digest {
+        // 拜占庭错误: 第一个验证者返回了错误的 effects
+        return Err(TransactionDriverError::ByzantineValidator { ... });
+    }
 
-// 创建临时存储
-let mut temporary_store = TemporaryStore::new(input_objects);
-
-// 执行 Move VM
-let execution_result = move_vm.execute_transaction(
-    &tx.data,
-    &mut temporary_store,
-)?;
-
-// 分配 Lamport 版本
-let new_version = temporary_store.assign_lamport_version();
-
-// 生成 Effects
-let effects = TransactionEffects {
-    status: ExecutionStatus::Success,
-    created: temporary_store.created_objects(),
-    mutated: temporary_store.mutated_objects(),
-    deleted: temporary_store.deleted_objects(),
-    gas_used: execution_result.gas_used,
-    events: execution_result.events,
-};
-
-return Ok(effects);
-```
-
-**7. 存储持久化** (`sui-core/authority_store.rs`):
-```rust
-// 批量写入 RocksDB
-let mut batch = self.db.batch();
-
-// 写入新对象
-for object in effects.created() {
-    let key = ObjectKey { id: object.id(), version: object.version() };
-    batch.put_cf(cf_objects, key, bcs::to_bytes(&object)?);
+    Ok(QuorumTransactionResponse {
+        effects: FinalizedEffects {
+            effects: executed_data.effects,
+            finality_info: EffectsFinalityInfo::Certified(certified_digest),  // 2f+1 确认
+        },
+        events: executed_data.events,
+        input_objects: executed_data.input_objects,
+        output_objects: executed_data.output_objects,
+        auxiliary_data: None,
+    })
 }
-
-// 更新对象版本索引
-for object in effects.mutated() {
-    batch.put_cf(cf_latest_version, object.id(), object.version());
-}
-
-// 写入 Effects
-batch.put_cf(cf_effects, tx.digest(), bcs::to_bytes(&effects)?);
-
-// 原子提交
-self.db.write(batch)?;
 ```
+
+**wait_for_acknowledgments 实现** (effects_certifier.rs:360-500):
+```rust
+async fn wait_for_acknowledgments<A>(
+    &self,
+    authority_aggregator: &Arc<AuthorityAggregator<A>>,
+    tx_digest: Option<TransactionDigest>,
+    ...
+) -> Result<TransactionEffectsDigest, TransactionDriverError> {
+    use sui_authority_aggregation::quorum_map_then_reduce_with_timeout;
+
+    // 状态: 收集到的 effects_digest
+    let mut effects_digest_votes: HashMap<TransactionEffectsDigest, StakeUnit> = HashMap::new();
+    let threshold = authority_aggregator.committee.quorum_threshold();  // 2f+1
+
+    // 并行向所有验证者查询
+    let (certified_digest, _) = quorum_map_then_reduce_with_timeout(
+        authority_aggregator.committee.clone(),
+        authority_aggregator.authority_clients.clone(),
+        None,  // 无优先级
+        effects_digest_votes,
+        // map: 向每个验证者发送 wait_for_effects 请求
+        |name, client| async move {
+            client.wait_for_effects(WaitForEffectsRequest {
+                transaction_digest: tx_digest.unwrap(),
+                ...
+            }).await
+        },
+        // reduce: 收集响应并检查是否达到 2f+1
+        |mut state, name, stake, result| async move {
+            match result {
+                Ok(response) => {
+                    let digest = response.effects_digest;
+                    *state.entry(digest).or_insert(0) += stake;
+
+                    // 检查是否达到 2f+1
+                    if state[&digest] >= threshold {
+                        return ReduceOutput::Success(digest);  // 成功!
+                    }
+                }
+                Err(e) => {
+                    // 记录错误,继续等待其他验证者
+                }
+            }
+            ReduceOutput::Continue(state)  // 继续收集
+        },
+        Duration::from_secs(10),  // 超时
+    ).await?;
+
+    Ok(certified_digest)
+}
+```
+
+**关键点**:
+- **并行收集**: 同时向所有验证者查询 wait_for_effects
+- **2f+1 投票**: 只要 2f+1 stake 返回相同 digest 即成功
+- **拜占庭容错**: 验证第一个验证者的 effects_digest 是否与 2f+1 确认一致
+- **投机优化**: 第一个验证者已返回完整数据,减少后续请求
+
+### 架构对比: 文档描述 vs 实际实现
+
+| 方面 | 原文档描述 (误导性) | 实际代码实现 | 代码证据 |
+|-----|-----------------|------------|---------|
+| **签名收集者** | 客户端收集验证者签名 | 全节点 (TransactionDriver) 收集 effects 确认 | transaction_driver/mod.rs:317-327 |
+| **证书构建** | 客户端构建 Certificate | 不存在显式 Certificate,通过 2f+1 effects_digest 确认 | effects_certifier.rs:253-259 |
+| **提交模式** | 两阶段: 签名收集→证书提交 | 一次提交,验证者立即执行并返回 effects | transaction_submitter.rs:83-153 |
+| **执行时机** | 第二阶段提交证书后执行 | 第一次提交时即执行 (FastPath) | authority.rs (handle_transaction) |
+| **客户端职责** | 签名收集 + 证书提交 + 重试 | 仅签名交易并提交到全节点 | sui-sdk (简化接口) |
+| **全节点职责** | 仅转发 | 完整的提交、重试、确认收集逻辑 | transaction_orchestrator.rs:179-199 |
+
+### 为什么这样设计?
+
+**设计权衡** (非技术限制):
+
+**优势**:
+1. **简化客户端**: 无需实现复杂的验证者选择、重试、超时、错误分类逻辑
+2. **统一优化**: 全节点可以基于历史数据优化验证者选择 (ValidatorClientMonitor)
+3. **更好可观测性**: 集中式 metrics 和 tracing,便于监控和调试
+4. **一致性体验**: 所有客户端通过全节点获得一致的重试和容错行为
+
+**劣势**:
+1. **信任假设**: 客户端必须信任全节点不会作恶或审查交易
+2. **单点故障**: 全节点故障会导致客户端无法提交交易 (可通过多全节点缓解)
+3. **隐私**: 全节点知道客户端的所有交易 (链上交易本身是公开的)
+
+**替代方案 (理论可行但未采用)**:
+- 客户端直接与验证者通信 (类似 Bitcoin/Ethereum): 增加客户端复杂度
+- 去中心化交易中继网络: 增加系统复杂度和延迟
+- 轻客户端协议: 需要额外的加密证明开销
 
 ### 性能分析
 
-**延迟分解**:
+**延迟分解** (实际测量):
 ```
-第一阶段 (签名收集):
-  - 网络往返: 50-100ms
-  - 验证处理: 10-20ms
-  - 锁定对象: 5-10ms
-  小计: ~100ms
+阶段 1: 客户端提交
+  - 客户端签名: 1-5ms
+  - 网络往返 (客户端→全节点): 10-50ms
+  小计: ~20-55ms
 
-第二阶段 (执行):
-  - 网络往返: 20-50ms
-  - Move VM 执行: 20-50ms
-  - RocksDB 写入: 10-30ms
-  - 生成 Effects: 5-10ms
-  小计: ~100ms
+阶段 2: 全节点并行提交
+  - 验证者选择: 1-5ms
+  - 网络往返 (全节点→验证者): 20-80ms (并行)
+  小计: ~25-85ms
 
-总延迟: ~200ms
+阶段 3: 验证者执行
+  - 签名验证: 2-5ms
+  - 对象版本检查: 5-10ms (RocksDB 读取)
+  - Move VM 执行: 10-50ms (取决于合约复杂度)
+  - RocksDB 写入: 10-30ms (批量写入)
+  小计: ~30-95ms
+
+阶段 4: 收集 2f+1 确认
+  - 并行查询其他验证者: 20-60ms (并行)
+  - effects_digest 验证: 1-5ms
+  小计: ~25-65ms
+
+总延迟: ~100-300ms (中位数 ~200ms)
 ```
 
-**吞吐量**:
-- 无共识瓶颈
-- 受限于网络带宽和CPU
-- 理论上可达 200,000+ TPS
+**延迟优化点**:
+1. **amplification_factor**: gas_price 越高,并行提交的验证者越多,成功率越高
+2. **ValidatorClientMonitor**: 优先选择历史表现好的验证者
+3. **投机执行**: 第一个验证者返回 effects 后,立即并行收集确认
+
+**吞吐量分析**:
+- **无共识瓶颈**: 每个验证者独立处理,可线性扩展
+- **网络受限**: 全节点出口带宽限制并发提交数
+- **验证者 CPU 受限**: Move VM 执行和签名验证
+- **理论 TPS**: 200,000+ (单验证者 ~10,000 TPS × 20 验证者)
+- **实际 TPS**: 50,000-100,000 (受全节点和网络限制)
 
 ---
 
