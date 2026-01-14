@@ -1,0 +1,77 @@
+sequenceDiagram
+    autonumber
+    participant Client as 客户端<br/>(sui-sdk)
+    participant RPC as 全节点 RPC<br/>(TransactionExecutionApi)
+    participant Orch as 交易协调器<br/>(TransactionOrchestrator)
+    participant Driver as 交易驱动<br/>(TransactionDriver)
+    participant Submitter as 提交器<br/>(TransactionSubmitter)
+    participant Certifier as 确认器<br/>(EffectsCertifier)
+    participant V1 as 验证者 1
+    participant V2 as 验证者 2
+    participant V3 as 验证者 3
+    participant V4 as 验证者 4
+
+    Note over Client: 阶段 1: 客户端构建并签名交易
+    Client->>Client: 构建 TransactionData<br/>用户私钥签名
+
+    Note over Client,RPC: 阶段 2: 提交到全节点
+    Client->>RPC: sui_executeTransactionBlock(tx, signatures)
+    RPC->>Orch: execute_transaction_block()
+    Orch->>Driver: drive_transaction()
+
+    Note over Driver,V4: 阶段 3: 并行提交到验证者 (TransactionSubmitter)
+    Driver->>Submitter: submit_transaction()
+
+    rect rgb(220, 240, 255)
+    Note over Submitter,V4: 并行发送 (amplification_factor = gas_price/ref_price)
+    par 并行提交
+        Submitter->>V1: submit_transaction(tx)
+    and
+        Submitter->>V2: submit_transaction(tx)
+    and
+        Submitter->>V3: submit_transaction(tx)
+    and
+        Submitter->>V4: submit_transaction(tx)
+    end
+    end
+
+    Note over V1: 阶段 4: 验证者立即执行 (FastPath)
+    rect rgb(255, 240, 220)
+    V1->>V1: 1. 检查对象类型 (仅拥有对象)<br/>2. 验证用户签名<br/>3. 检查对象版本 (防双花)<br/>4. 执行 Move VM<br/>5. 写入 RocksDB
+    V1-->>Submitter: SubmitTxResult::Executed {<br/>  effects_digest,<br/>  details: ExecutedData<br/>}
+    end
+
+    Note over Submitter: 等待第一个成功响应
+    Submitter-->>Driver: (V1, SubmitTxResult)
+
+    Note over Driver,V4: 阶段 5: 收集 2f+1 确认 (EffectsCertifier)
+    Driver->>Certifier: get_certified_finalized_effects()
+
+    rect rgb(220, 255, 220)
+    Note over Certifier,V4: 并行等待其他验证者确认
+    par 收集确认
+        Certifier->>V2: wait_for_effects(tx_digest)
+        V2->>V2: 执行 (如未执行)
+        V2-->>Certifier: effects_digest
+    and
+        Certifier->>V3: wait_for_effects(tx_digest)
+        V3->>V3: 执行 (如未执行)
+        V3-->>Certifier: effects_digest
+    and
+        Certifier->>V4: wait_for_effects(tx_digest)
+        V4->>V4: 执行 (如未执行)
+        V4-->>Certifier: effects_digest
+    end
+    end
+
+    Note over Certifier: 验证: 2f+1 个 effects_digest 相同
+    Certifier->>Certifier: certified_digest = <br/>2f+1 个相同 digest
+
+    Certifier-->>Driver: QuorumTransactionResponse {<br/>  effects: FinalizedEffects,<br/>  finality_info: Certified(digest)<br/>}
+
+    Note over Driver,RPC: 阶段 6: 返回结果
+    Driver-->>Orch: QuorumTransactionResponse
+    Orch-->>RPC: ExecuteTransactionResponseV3
+    RPC-->>Client: SuiTransactionBlockResponse {<br/>  digest, effects, events,<br/>  confirmed_local_execution<br/>}
+
+    Note over Client: ✅ 交易完成<br/>等待 Checkpoint 进一步确认
