@@ -1135,7 +1135,959 @@ async fn batch_update_orderbook(
 
 ---
 
-## 11. 与 DYDX 方案对比
+## 11. 代码级别详细分析: Move Events vs Off-chain Updates
+
+> 参考 DYDX Indexer 的双通道数据流设计，定义 Sui DEX 的链上事件与链下更新机制。
+
+### 11.1 Move Events (链上事件)
+
+Move Events 通过 Sui 合约的 `event::emit()` 发射，被打包进 Checkpoint，由 Checkpoint Processor 批量处理后写入持久化存储。
+
+#### 事件类型定义
+
+| 事件类型 | 触发场景 | Move 模块 | 存储目标 |
+|---------|---------|----------|---------|
+| **OrderPlaced** | 有状态订单放置 (长期/条件订单) | `dex::orderbook` | TimescaleDB (orders) |
+| **OrderMatched** | 订单成交 | `dex::matching` | TimescaleDB (fills, orders) |
+| **OrderCancelled** | 订单取消 | `dex::orderbook` | TimescaleDB (orders) |
+| **PositionUpdated** | 仓位变化 | `dex::position` | TimescaleDB (perpetual_positions) |
+| **FundingRateUpdated** | 资金费率计算 | `dex::funding` | TimescaleDB (funding_rates) |
+| **LiquidationExecuted** | 清算执行 | `dex::liquidation` | TimescaleDB (fills) + ClickHouse |
+| **MarketCreated** | 市场创建 | `dex::market` | TimescaleDB (markets) |
+| **TransferExecuted** | 转账事件 | `dex::transfer` | TimescaleDB (transfers) |
+
+#### Move 事件结构示例
+
+```move
+// dex::events 模块
+module dex::events {
+    use sui::event;
+
+    /// 订单成交事件
+    public struct OrderMatchedEvent has copy, drop {
+        market_id: ID,
+        maker_order_id: ID,
+        taker_order_id: ID,
+        maker_address: address,
+        taker_address: address,
+        side: u8,           // 0: Buy, 1: Sell (Taker side)
+        price: u64,         // 价格 (subticks)
+        quantity: u64,      // 数量 (quantums)
+        maker_fee: u64,
+        taker_fee: u64,
+        timestamp: u64,
+    }
+
+    /// 仓位更新事件
+    public struct PositionUpdatedEvent has copy, drop {
+        owner: address,
+        market_id: ID,
+        side: u8,           // 0: Long, 1: Short
+        size: u64,          // 仓位大小
+        entry_price: u64,   // 入场价格
+        margin: u64,        // 保证金
+        unrealized_pnl: i64,
+        checkpoint_sequence: u64,
+    }
+
+    /// 资金费率事件
+    public struct FundingRateEvent has copy, drop {
+        market_id: ID,
+        rate: i64,          // 资金费率 (有符号)
+        mark_price: u64,
+        index_price: u64,
+        timestamp: u64,
+    }
+}
+```
+
+#### 事件数据流
+
+```
+Sui 合约 (Move)
+    │
+    │ event::emit(OrderMatchedEvent {...})
+    ▼
+Transaction Effects
+    │
+    │ 包含在 Checkpoint 中
+    ▼
+Checkpoint Store (RocksDB)
+    │
+    │ sui-indexer-alt 读取
+    ▼
+Checkpoint Processor
+    │
+    │ 解析事件 → 写入数据库
+    ▼
+TimescaleDB / ClickHouse
+```
+
+### 11.2 Off-chain Updates (链下更新)
+
+Off-chain Updates 通过 FastPath Listener 订阅 Sui 节点 RPC 实时获取，用于**立即更新 Redis 缓存**，提供低延迟的订单簿和订单状态。
+
+#### 更新类型定义
+
+| 更新类型 | 触发场景 | 数据来源 | 存储目标 | 状态性质 |
+|---------|---------|---------|---------|---------|
+| **OrderPlaceUpdate** | 短期订单放置 | RPC 订阅 | Redis | 乐观状态 (BEST_EFFORT_OPENED) |
+| **OrderUpdateUpdate** | 订单部分成交 | RPC 订阅 | Redis | 乐观状态 |
+| **OrderRemoveUpdate** | 订单移除/取消/完全成交 | RPC 订阅 | Redis | 乐观状态 (BEST_EFFORT_CANCELED) |
+| **PositionSnapshotUpdate** | 仓位快照更新 | RPC 订阅 | Redis | 乐观状态 |
+
+#### 更新数据结构
+
+```rust
+// off_chain_updates.rs
+#[derive(Clone, Serialize, Deserialize)]
+pub enum OffChainUpdate {
+    OrderPlace(OrderPlaceUpdate),
+    OrderUpdate(OrderUpdateUpdate),
+    OrderRemove(OrderRemoveUpdate),
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OrderPlaceUpdate {
+    pub order_id: String,
+    pub market_id: String,
+    pub owner: String,
+    pub side: Side,
+    pub price: Decimal,
+    pub quantity: Decimal,
+    pub order_type: OrderType,
+    pub time_in_force: TimeInForce,
+    pub placement_status: PlacementStatus,  // BEST_EFFORT_OPENED
+    pub tx_digest: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OrderRemoveUpdate {
+    pub order_id: String,
+    pub removal_reason: RemovalReason,      // USER_CANCELED / FULLY_FILLED / EXPIRED / POST_ONLY_REJECTED
+    pub removal_status: RemovalStatus,       // BEST_EFFORT_CANCELED
+}
+
+#[derive(Clone, Copy)]
+pub enum PlacementStatus {
+    BestEffortOpened,   // 乐观状态，可能被链上覆盖
+    Opened,             // 链上确认
+}
+
+#[derive(Clone, Copy)]
+pub enum RemovalStatus {
+    BestEffortCanceled, // 乐观状态
+    Canceled,           // 链上确认
+    Filled,             // 完全成交
+}
+```
+
+#### 链下更新数据流
+
+```
+Sui 节点 RPC
+    │
+    │ sui_subscribeTransaction (WebSocket)
+    ▼
+FastPath Listener
+    │
+    │ 1. 过滤 DEX Package ID
+    │ 2. 解析 TransactionEffects
+    │ 3. 生成 OffChainUpdate
+    ▼
+Redis Stream (realtime-orders)
+    │
+    ▼
+Orderbook Processor
+    │
+    │ 更新 Redis 缓存
+    ▼
+Redis
+    │
+    ├── OrdersCache (订单数据)
+    ├── OrderbookLevelsCache (价格层级)
+    └── SubaccountOrderIdsCache (用户订单映射)
+```
+
+### 11.3 双通道对比总结
+
+| 维度 | Move Events (链上事件) | Off-chain Updates (链下更新) |
+|-----|----------------------|---------------------------|
+| **数据类型** | 8+ 种事件类型 | 4 种更新类型 |
+| **触发时机** | 交易执行时发射事件 | RPC 订阅实时获取 |
+| **发送方式** | Checkpoint 批量处理 | 实时单条处理 |
+| **消息队列** | Kafka (checkpoint-data) | Redis Stream (realtime-*) |
+| **处理服务** | Checkpoint Processor + Trade/History Processor | FastPath Listener + Orderbook Processor |
+| **存储目标** | TimescaleDB + ClickHouse | Redis |
+| **延迟** | 3-5 秒 (Checkpoint 间隔) | <500ms |
+| **数据特点** | 最终确定、持久化 | 乐观更新、可能回滚 |
+
+### 11.4 设计哲学
+
+1. **最终一致性 vs 实时性**:
+   - Move Events 保证最终一致性，但延迟较高 (Checkpoint 时间)
+   - Off-chain Updates 提供实时响应，但可能因 Checkpoint 确认而需要修正
+
+2. **数据分层**:
+   - 持久化数据 (仓位、成交记录、历史订单) → Move Events → TimescaleDB/ClickHouse
+   - 实时状态 (订单簿、活跃订单) → Off-chain Updates → Redis
+
+3. **乐观更新策略**:
+   - 短期订单使用 `BEST_EFFORT_OPENED` 状态
+   - 取消使用 `BEST_EFFORT_CANCELED` 状态
+   - 表示该状态是乐观的，可能被后续 Checkpoint 确认覆盖
+
+---
+
+## 12. 存储层详细分析
+
+> 解答关键问题: FastPath 和 Checkpoint 数据各自存储到哪里？
+
+### 12.1 核心结论
+
+| 数据通道 | 处理服务 | 存储目标 | 是否写入 TimescaleDB |
+|---------|---------|---------|---------------------|
+| **FastPath (实时)** | Orderbook Processor | **Redis 仅缓存** | ❌ **否** |
+| **Checkpoint (批量)** | Trade/History Processor | **TimescaleDB + ClickHouse** | ✅ **是** |
+
+**关键发现**:
+- **FastPath (Off-chain Updates) 只写入 Redis，不写入 TimescaleDB**
+- **Checkpoint (Move Events) 写入 TimescaleDB/ClickHouse，同时更新部分 Redis 缓存用于数据一致性**
+- TimescaleDB 中的数据是 Checkpoint 确认后的最终状态，Redis 中的数据是乐观的实时状态
+
+### 12.2 数据流存储路径详解
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                            存储层数据流详解                                           │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│   FastPath (实时通道)                                                                │
+│   ════════════════════                                                              │
+│                                                                                      │
+│   Sui 节点 RPC                                                                       │
+│       │                                                                              │
+│       │ 1. 订阅交易效果 (TransactionEffects)                                         │
+│       ▼                                                                              │
+│   FastPath Listener                                                                  │
+│       │                                                                              │
+│       │ 2. 生成 OffChainUpdate 消息                                                  │
+│       ▼                                                                              │
+│   Redis Stream (realtime-orders)                                                     │
+│       │                                                                              │
+│       │ 3. Orderbook Processor 消费                                                  │
+│       ▼                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────┐               │
+│   │                   Orderbook Processor                            │               │
+│   │                                                                  │               │
+│   │   OrderPlaceHandler ──┬──► Redis (OrdersCache)                  │               │
+│   │                       │                                          │               │
+│   │                       ├──► Redis (OrderbookLevelsCache)         │               │
+│   │                       │                                          │               │
+│   │                       └──► Redis (UserOrdersCache)              │               │
+│   │                                                                  │               │
+│   │   OrderUpdateHandler ──► Redis (OrdersCache - 更新成交量)       │               │
+│   │                                                                  │               │
+│   │   OrderRemoveHandler ──► Redis (移除订单/更新订单簿)             │               │
+│   │                                                                  │               │
+│   │   ⚠️ 注意: Orderbook Processor 不写入任何 TimescaleDB 表        │               │
+│   │                                                                  │               │
+│   └─────────────────────────────────────────────────────────────────┘               │
+│                                                                                      │
+│   ──────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│   Checkpoint (批量通道)                                                              │
+│   ═════════════════════                                                             │
+│                                                                                      │
+│   Checkpoint Store (RocksDB)                                                         │
+│       │                                                                              │
+│       │ 1. sui-indexer-alt Pipeline 读取                                             │
+│       ▼                                                                              │
+│   Checkpoint Processor                                                               │
+│       │                                                                              │
+│       │ 2. 解析 DEX 事件，发送到 Kafka                                               │
+│       ▼                                                                              │
+│   Kafka (checkpoint-data)                                                            │
+│       │                                                                              │
+│       │ 3. Trade/History Processor 消费                                              │
+│       ▼                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────┐               │
+│   │                   Trade Processor                                │               │
+│   │                                                                  │               │
+│   │   OrderMatchedHandler ──┬──► TimescaleDB (fills)                │               │
+│   │                         │                                        │               │
+│   │                         ├──► TimescaleDB (orders - 更新状态)     │               │
+│   │                         │                                        │               │
+│   │                         └──► TimescaleDB (candles - 更新K线)    │               │
+│   │                                                                  │               │
+│   │   PositionUpdateHandler ──► TimescaleDB (perpetual_positions)   │               │
+│   │                                                                  │               │
+│   │   FundingRateHandler ──► TimescaleDB (funding_rates)            │               │
+│   │                                                                  │               │
+│   │   同时更新 Redis 缓存用于数据一致性:                             │               │
+│   │   └──► Redis (StateFilledQuantumsCache)                         │               │
+│   └─────────────────────────────────────────────────────────────────┘               │
+│                                                                                      │
+│   ┌─────────────────────────────────────────────────────────────────┐               │
+│   │                   History Processor                              │               │
+│   │                                                                  │               │
+│   │   OrderEventHandler ──► ClickHouse (orders - 历史订单)          │               │
+│   │                                                                  │               │
+│   │   PositionSnapshotHandler ──► ClickHouse (position_snapshots)   │               │
+│   │                                                                  │               │
+│   │   TradeAnalyticsHandler ──► ClickHouse (物化视图)               │               │
+│   └─────────────────────────────────────────────────────────────────┘               │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.3 TimescaleDB 表结构详解
+
+#### 核心表分类
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                          TimescaleDB 表结构分类                                       │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│   ┌──────────────────────────────────────────────────────────────────────────────┐  │
+│   │  交易核心表 (Trading Core)                                                    │  │
+│   ├──────────────────────────────────────────────────────────────────────────────┤  │
+│   │  表名                   │ 用途                    │ 数据来源事件              │  │
+│   ├──────────────────────────────────────────────────────────────────────────────┤  │
+│   │  orders                │ 订单记录                │ OrderPlaced, OrderMatched │  │
+│   │  fills                 │ 成交记录 (Hypertable)   │ OrderMatched              │  │
+│   │  candles               │ K线数据 (Hypertable)    │ OrderMatched (聚合计算)   │  │
+│   └──────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                      │
+│   ┌──────────────────────────────────────────────────────────────────────────────┐  │
+│   │  账户仓位表 (Account & Position)                                              │  │
+│   ├──────────────────────────────────────────────────────────────────────────────┤  │
+│   │  表名                   │ 用途                    │ 数据来源事件              │  │
+│   ├──────────────────────────────────────────────────────────────────────────────┤  │
+│   │  perpetual_positions   │ 永续合约仓位            │ PositionUpdated           │  │
+│   │  asset_positions       │ 资产余额                │ PositionUpdated           │  │
+│   │  subaccounts           │ 子账户信息              │ 首次交易时创建            │  │
+│   └──────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                      │
+│   ┌──────────────────────────────────────────────────────────────────────────────┐  │
+│   │  资金费率表 (Funding)                                                         │  │
+│   ├──────────────────────────────────────────────────────────────────────────────┤  │
+│   │  表名                   │ 用途                    │ 数据来源事件              │  │
+│   ├──────────────────────────────────────────────────────────────────────────────┤  │
+│   │  funding_rates         │ 资金费率历史 (Hypertable)│ FundingRateUpdated       │  │
+│   │  funding_payments      │ 资金费支付记录          │ PositionUpdated           │  │
+│   └──────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                      │
+│   ┌──────────────────────────────────────────────────────────────────────────────┐  │
+│   │  市场配置表 (Market Configuration)                                            │  │
+│   ├──────────────────────────────────────────────────────────────────────────────┤  │
+│   │  表名                   │ 用途                    │ 数据来源事件              │  │
+│   ├──────────────────────────────────────────────────────────────────────────────┤  │
+│   │  markets               │ 市场配置                │ MarketCreated             │  │
+│   │  checkpoints           │ Checkpoint 同步状态     │ 每个 Checkpoint           │  │
+│   └──────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 详细表结构
+
+##### 1. orders 表 (订单记录)
+
+```sql
+CREATE TABLE orders (
+    id TEXT PRIMARY KEY,                  -- 订单 ID (ObjectID)
+    market_id TEXT NOT NULL,              -- 市场 ID
+    owner TEXT NOT NULL,                  -- 所有者地址
+    side TEXT NOT NULL,                   -- 'buy' / 'sell'
+    order_type TEXT NOT NULL,             -- 'limit' / 'market' / 'stop_limit' / 'stop_market'
+    time_in_force TEXT NOT NULL,          -- 'gtc' / 'ioc' / 'fok' / 'post_only'
+    price NUMERIC(38, 18) NOT NULL,       -- 订单价格
+    quantity NUMERIC(38, 18) NOT NULL,    -- 订单数量
+    filled_quantity NUMERIC(38, 18) NOT NULL DEFAULT 0, -- 已成交数量
+    status TEXT NOT NULL,                 -- 'open' / 'partial' / 'filled' / 'cancelled' / 'expired'
+    reduce_only BOOLEAN NOT NULL DEFAULT FALSE,
+    trigger_price NUMERIC(38, 18),        -- 条件订单触发价
+    tx_digest TEXT NOT NULL,              -- 创建交易哈希
+    checkpoint_sequence BIGINT NOT NULL,  -- Checkpoint 序号
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    -- 索引
+    CONSTRAINT idx_orders_owner_status UNIQUE (owner, status, created_at DESC),
+    INDEX idx_orders_market_status (market_id, status)
+);
+```
+
+##### 2. fills 表 (成交记录 - Hypertable)
+
+```sql
+CREATE TABLE fills (
+    id BIGSERIAL,
+    market_id TEXT NOT NULL,
+    tx_digest TEXT NOT NULL,              -- 交易哈希
+    maker_order_id TEXT NOT NULL,
+    taker_order_id TEXT NOT NULL,
+    maker_address TEXT NOT NULL,
+    taker_address TEXT NOT NULL,
+    side TEXT NOT NULL,                   -- Taker side: 'buy' / 'sell'
+    price NUMERIC(38, 18) NOT NULL,
+    quantity NUMERIC(38, 18) NOT NULL,
+    quote_quantity NUMERIC(38, 18) NOT NULL,
+    maker_fee NUMERIC(38, 18) NOT NULL,
+    taker_fee NUMERIC(38, 18) NOT NULL,
+    liquidity TEXT NOT NULL,              -- 'maker' / 'taker' (当前记录是哪一方)
+    fill_type TEXT NOT NULL,              -- 'limit' / 'liquidation' / 'deleveraging'
+    checkpoint_sequence BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (id, created_at)
+);
+
+-- 转换为 Hypertable
+SELECT create_hypertable('fills', 'created_at',
+    chunk_time_interval => INTERVAL '1 day');
+
+-- 压缩策略
+ALTER TABLE fills SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'market_id'
+);
+SELECT add_compression_policy('fills', INTERVAL '7 days');
+
+-- 索引
+CREATE INDEX idx_fills_market ON fills (market_id, created_at DESC);
+CREATE INDEX idx_fills_maker ON fills (maker_address, created_at DESC);
+CREATE INDEX idx_fills_taker ON fills (taker_address, created_at DESC);
+```
+
+##### 3. perpetual_positions 表 (永续仓位)
+
+```sql
+CREATE TABLE perpetual_positions (
+    id TEXT PRIMARY KEY,                  -- Position ID
+    owner TEXT NOT NULL,
+    market_id TEXT NOT NULL,
+    side TEXT NOT NULL,                   -- 'long' / 'short'
+    status TEXT NOT NULL,                 -- 'open' / 'closed'
+    size NUMERIC(38, 18) NOT NULL,        -- 仓位大小
+    entry_price NUMERIC(38, 18) NOT NULL, -- 入场均价
+    margin NUMERIC(38, 18) NOT NULL,      -- 保证金
+    leverage NUMERIC(10, 2) NOT NULL,     -- 杠杆倍数
+    unrealized_pnl NUMERIC(38, 18),       -- 未实现盈亏
+    realized_pnl NUMERIC(38, 18) NOT NULL DEFAULT 0, -- 已实现盈亏
+    liquidation_price NUMERIC(38, 18),    -- 清算价格
+    settled_funding NUMERIC(38, 18) NOT NULL DEFAULT 0, -- 已结算资金费
+    checkpoint_sequence BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    closed_at TIMESTAMPTZ,
+
+    -- 索引
+    INDEX idx_positions_owner (owner, market_id, status),
+    INDEX idx_positions_market (market_id, status)
+);
+```
+
+##### 4. funding_rates 表 (资金费率 - Hypertable)
+
+```sql
+CREATE TABLE funding_rates (
+    market_id TEXT NOT NULL,
+    rate NUMERIC(38, 18) NOT NULL,        -- 资金费率
+    mark_price NUMERIC(38, 18) NOT NULL,  -- 标记价格
+    index_price NUMERIC(38, 18) NOT NULL, -- 指数价格
+    funding_index NUMERIC(38, 18) NOT NULL, -- 累计资金指数
+    checkpoint_sequence BIGINT NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (market_id, timestamp)
+);
+
+SELECT create_hypertable('funding_rates', 'timestamp',
+    chunk_time_interval => INTERVAL '1 day');
+```
+
+##### 5. checkpoints 表 (同步状态)
+
+```sql
+CREATE TABLE checkpoints (
+    sequence_number BIGINT PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL,
+    digest TEXT NOT NULL,
+    processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    events_count INTEGER NOT NULL DEFAULT 0
+);
+
+-- 用于快速查找最新处理的 Checkpoint
+CREATE INDEX idx_checkpoints_processed ON checkpoints (processed_at DESC);
+```
+
+### 12.4 Redis 缓存结构详解
+
+| 缓存名称 | Redis Key 格式 | 数据类型 | 用途 | 写入来源 |
+|---------|---------------|---------|------|---------|
+| **OrdersCache** | `dex:orders:{order_id}` | HASH | 订单完整数据 | FastPath |
+| **OrderbookLevelsCache** | `dex:orderbook:{market_id}:{side}` | ZSET | 价格层级聚合 | FastPath |
+| **UserOrdersCache** | `dex:user_orders:{address}` | SET | 用户活跃订单 ID 列表 | FastPath |
+| **PositionsCache** | `dex:positions:{address}:{market_id}` | HASH | 仓位快照 | FastPath |
+| **MidPriceCache** | `dex:mid_price:{market_id}` | STRING | 订单簿中间价 | FastPath |
+| **LastPriceCache** | `dex:last_price:{market_id}` | STRING | 最新成交价 | FastPath |
+| **StateFilledQuantumsCache** | `dex:filled:{order_id}` | STRING | 链上确认成交量 | Checkpoint |
+
+#### Redis 数据结构详解
+
+```
+# 订单簿价格层级 (ZSET)
+Key: dex:orderbook:{market_id}:bids
+Score: price (降序排列)
+Value: total_quantity (该价位总数量)
+
+Key: dex:orderbook:{market_id}:asks
+Score: price (升序排列)
+Value: total_quantity
+
+# 订单详情 (HASH)
+Key: dex:orders:{order_id}
+Fields:
+  - market_id: string
+  - owner: string
+  - side: string
+  - price: string
+  - quantity: string
+  - filled_quantity: string
+  - status: string  # 'BEST_EFFORT_OPENED' / 'OPEN' / 'FILLED' / 'BEST_EFFORT_CANCELED'
+  - created_at: timestamp
+  - tx_digest: string
+
+# 仓位快照 (HASH)
+Key: dex:positions:{address}:{market_id}
+Fields:
+  - side: string
+  - size: string
+  - entry_price: string
+  - margin: string
+  - unrealized_pnl: string
+  - liquidation_price: string
+  - updated_at: timestamp
+```
+
+### 12.5 数据一致性保证
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                           数据一致性保证机制                                          │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│   时间线:                                                                            │
+│   ───────                                                                            │
+│                                                                                      │
+│   T0: 用户提交订单 (通过 Sui RPC)                                                    │
+│        │                                                                             │
+│   T1: 交易执行 (链上)                                                                │
+│        │                                                                             │
+│        ├──► FastPath 订阅到交易效果                                                  │
+│        │    └──► Orderbook Processor ──► Redis (OrdersCache, OrderbookLevelsCache)  │
+│        │         订单状态: BEST_EFFORT_OPENED                                        │
+│        │                                                                             │
+│   T2: 交易进入 Checkpoint (~3秒后)                                                   │
+│        │                                                                             │
+│        ├──► Checkpoint Processor 读取                                                │
+│        │    └──► Trade Processor ──► TimescaleDB (orders, fills)                    │
+│        │                            Redis (StateFilledQuantumsCache)                 │
+│        │         订单状态: OPEN / FILLED                                             │
+│        │                                                                             │
+│   T3: Trade Processor 通知更新 Redis 状态                                            │
+│        │                                                                             │
+│        └──► Redis (OrdersCache 状态更新为 OPEN / FILLED / CANCELED)                  │
+│                                                                                      │
+│   ──────────────────────────────────────────────────────────────────────────────    │
+│                                                                                      │
+│   冲突解决策略:                                                                       │
+│   ═════════════                                                                      │
+│                                                                                      │
+│   1. TimescaleDB 数据权威性 > Redis                                                  │
+│      - 发生冲突时以 Checkpoint 确认的 TimescaleDB 数据为准                            │
+│                                                                                      │
+│   2. StateFilledQuantumsCache 作为桥梁                                               │
+│      - Trade Processor 写入 Redis 中已确认的成交量                                    │
+│      - Orderbook Processor 读取此缓存判断订单实际状态                                 │
+│                                                                                      │
+│   3. 乐观状态回滚                                                                    │
+│      - 如果 Checkpoint 中没有该订单事件 (可能因为失败)                                │
+│      - Trade Processor 会发送 OrderRemove 更新                                       │
+│      - Orderbook Processor 收到后从 Redis 中移除该订单                               │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.6 设计原理总结
+
+| 设计决策 | 原因 |
+|---------|------|
+| **FastPath 不写 TimescaleDB** | 短期订单生命周期短，写入 TimescaleDB 会造成大量无效 I/O；Redis 内存操作延迟低，适合高频更新 |
+| **Checkpoint 写 TimescaleDB** | Checkpoint 确认的数据是最终状态，需要持久化存储用于历史查询、审计和恢复 |
+| **Redis 作为实时层** | 订单簿需要毫秒级响应，TimescaleDB 无法满足；Redis 支持复杂数据结构 (ZSET 用于价格层级) |
+| **双缓存同步** | Trade Processor 更新 StateFilledQuantumsCache 通知 Orderbook Processor 实际链上状态，实现最终一致性 |
+
+---
+
+## 13. 部署架构分析
+
+### 13.1 核心结论
+
+**Sui DEX Indexer 采用统一部署模式，不是每个验证器节点配套一套。**
+
+与 DYDX 类似，整个 Indexer 基础设施是独立于验证器网络的统一服务。
+
+### 13.2 架构图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                         Sui DEX Indexer 部署架构                                      │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│   ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│   │                          Sui 验证器网络层                                    │   │
+│   │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐               │   │
+│   │  │ Validator │  │ Validator │  │ Validator │  │ Validator │               │   │
+│   │  │    #1     │  │    #2     │  │    #3     │  │    #N     │               │   │
+│   │  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘               │   │
+│   │        │              │              │              │                       │   │
+│   │        └──────────────┴──────────────┴──────────────┘                       │   │
+│   │                           │                                                  │   │
+│   │                           │ Narwhal/Bullshark 共识                           │   │
+│   │                           ▼                                                  │   │
+│   └─────────────────────────────────────────────────────────────────────────────┘   │
+│                               │                                                      │
+│                               │ Checkpoint 同步                                      │
+│                               ▼                                                      │
+│   ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│   │                    Indexer 专用全节点 (Full Node)                            │   │
+│   │                                                                              │   │
+│   │   配置:                                                                       │   │
+│   │   --enable-indexer=true                                                      │   │
+│   │   --rpc-server-address=0.0.0.0:9000                                         │   │
+│   │                                                                              │   │
+│   │   ┌─────────────────────────────┐    ┌─────────────────────────────┐        │   │
+│   │   │   FastPath Listener         │    │   sui-indexer-alt Pipeline  │        │   │
+│   │   │   (RPC 订阅实时交易)         │    │   (Checkpoint 批量处理)      │        │   │
+│   │   └────────────┬────────────────┘    └────────────┬────────────────┘        │   │
+│   │                │                                  │                          │   │
+│   │                │ realtime-*                       │ checkpoint-data          │   │
+│   │                ▼                                  ▼                          │   │
+│   └────────────────┼──────────────────────────────────┼──────────────────────────┘   │
+│                    │                                  │                              │
+│                    └────────────────┬─────────────────┘                              │
+│                                     │                                                │
+│                                     ▼                                                │
+│   ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│   │                         消息队列层                                            │   │
+│   │                                                                              │   │
+│   │   ┌──────────────────┐              ┌──────────────────┐                    │   │
+│   │   │   Redis Stream   │              │      Kafka       │                    │   │
+│   │   │  (实时数据)       │              │  (批量数据)       │                    │   │
+│   │   │                  │              │                  │                    │   │
+│   │   │ • realtime-orders│              │ • checkpoint-data│                    │   │
+│   │   │ • realtime-trades│              │ • to-websockets-*│                    │   │
+│   │   │ • realtime-pos   │              │                  │                    │   │
+│   │   └────────┬─────────┘              └────────┬─────────┘                    │   │
+│   │            │                                 │                               │   │
+│   └────────────┼─────────────────────────────────┼───────────────────────────────┘   │
+│                │                                 │                                    │
+│                ▼                                 ▼                                    │
+│   ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│   │                   Indexer 服务集群 (统一部署)                                 │   │
+│   │                                                                              │   │
+│   │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │   │
+│   │   │  Orderbook   │  │    Trade     │  │   History    │  │ Reconciliation│   │   │
+│   │   │  Processor   │  │  Processor   │  │  Processor   │  │   Service    │   │   │
+│   │   │ (实时订单簿) │  │  (K线/成交)  │  │  (历史数据)  │  │  (数据对账)  │   │   │
+│   │   └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘   │   │
+│   │          │                 │                 │                 │            │   │
+│   │          └─────────────────┴─────────────────┴─────────────────┘            │   │
+│   │                                     │                                        │   │
+│   │                            ┌────────┴────────┐                               │   │
+│   │                            ▼                 ▼                               │   │
+│   │                      ┌───────────┐     ┌───────────┐                        │   │
+│   │                      │   Redis   │     │TimescaleDB│                        │   │
+│   │                      │ (实时缓存) │     │(时序存储) │                        │   │
+│   │                      └───────────┘     └───────────┘                        │   │
+│   │                            │                 │                               │   │
+│   │                            │                 ▼                               │   │
+│   │                            │           ┌───────────┐                        │   │
+│   │                            │           │ClickHouse │                        │   │
+│   │                            │           │(分析存储) │                        │   │
+│   │                            │           └───────────┘                        │   │
+│   │                            │                                                 │   │
+│   └────────────────────────────┼─────────────────────────────────────────────────┘   │
+│                                │                                                      │
+│                                ▼                                                      │
+│   ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│   │                         API 服务层                                            │   │
+│   │                                                                              │   │
+│   │   ┌──────────────────┐                    ┌──────────────────┐              │   │
+│   │   │    REST API      │                    │   WebSocket      │              │   │
+│   │   │   (Axum × N)     │                    │  Server (× N)    │              │   │
+│   │   │                  │                    │                  │              │   │
+│   │   │ • 订单簿查询     │                    │ • 订单簿订阅     │              │   │
+│   │   │ • 历史订单       │                    │ • 成交推送       │              │   │
+│   │   │ • K线数据        │                    │ • 仓位更新       │              │   │
+│   │   │ • 仓位查询       │                    │ • K线更新        │              │   │
+│   │   └──────────────────┘                    └──────────────────┘              │   │
+│   │                                                                              │   │
+│   └─────────────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                                 │
+│                                    ▼                                                 │
+│                              ┌──────────┐                                            │
+│                              │  客户端   │                                            │
+│                              │ (交易前端)│                                            │
+│                              └──────────┘                                            │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 13.3 节点类型对比
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Sui 节点类型                                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    Validator (验证器)                    │    │
+│  │                                                          │    │
+│  │  功能: 参与共识、出块、签名 Checkpoint                    │    │
+│  │  Indexer: ❌ 不运行 Indexer 服务                         │    │
+│  │  RPC: 通常不对外开放                                      │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │               Regular Full Node (普通全节点)             │    │
+│  │                                                          │    │
+│  │  功能: 同步 Checkpoint、提供 RPC 服务                     │    │
+│  │  Indexer: ❌ 不运行 Indexer 服务                         │    │
+│  │  RPC: ✅ 对外提供查询服务                                │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │            Indexer Full Node (Indexer 专用全节点)        │    │
+│  │                                                          │    │
+│  │  功能: 同步 Checkpoint + 运行 sui-indexer-alt Pipeline   │    │
+│  │        + FastPath Listener (RPC 订阅)                    │    │
+│  │  Indexer: ✅ 发送数据到消息队列                          │    │
+│  │  RPC: ✅ 支持交易订阅                                    │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 关键配置参数对比
+
+| 参数 | Validator | 普通全节点 | Indexer 全节点 |
+|-----|-----------|-----------|---------------|
+| 参与共识 | ✅ | ❌ | ❌ |
+| 同步 Checkpoint | ✅ | ✅ | ✅ |
+| RPC 服务 | 可选 | ✅ | ✅ |
+| 交易订阅 (WebSocket) | ❌ | ✅ | ✅ |
+| sui-indexer-alt | ❌ | 可选 | ✅ |
+| FastPath Listener | ❌ | ❌ | ✅ |
+| 发送到 Kafka | ❌ | ❌ | ✅ |
+
+### 13.4 扩展性设计
+
+```
+                    ┌─────────────────┐
+                    │ Indexer Full    │
+                    │  Node #1        │──┐
+                    │  (Primary)      │  │
+                    └─────────────────┘  │
+                                         │
+                    ┌─────────────────┐  │    ┌───────────────────┐
+                    │ Indexer Full    │──┼───▶│   Redis Stream    │
+                    │  Node #2        │  │    │   + Kafka         │
+                    │  (Backup)       │  │    └─────────┬─────────┘
+                    └─────────────────┘  │              │
+                                         │              ▼
+                    ┌─────────────────┐  │    ┌───────────────────┐
+                    │ Indexer Full    │──┘    │  Indexer Services │
+                    │  Node #N        │       │  (Horizontal Scale)│
+                    │  (Geo-replica)  │       └───────────────────┘
+                    └─────────────────┘
+```
+
+**扩展策略**:
+
+1. **多 Indexer 全节点**: 提高数据源可用性，支持故障切换
+2. **Kafka 分区**: 按 market_id 分区，支持消费者组水平扩展
+3. **Processor 水平扩展**: Orderbook/Trade/History Processor 可多副本部署
+4. **API 服务水平扩展**: REST API 和 WebSocket Server 可通过负载均衡扩展
+
+---
+
+## 14. Checkpoint 回滚与数据恢复策略
+
+### 14.1 Sui Checkpoint 特性
+
+| 特性 | 描述 |
+|-----|------|
+| **生成间隔** | ~3 秒 |
+| **包含内容** | 多个交易的执行结果、事件 |
+| **最终性** | Checkpoint 一旦被 2f+1 验证器签名，具有即时最终性 |
+| **回滚可能性** | 无 (与 CometBFT 类似) |
+
+### 14.2 与 DYDX (CometBFT) 区块对比
+
+| 特性 | Sui Checkpoint | CometBFT 区块 |
+|-----|---------------|--------------|
+| 生成间隔 | ~3 秒 | ~1-2 秒 |
+| 最终性 | 即时最终 | 即时最终 |
+| 回滚可能性 | 无 | 无 |
+| 数据来源 | Checkpoint Store (RocksDB) | 区块链 |
+| 事件包含方式 | Transaction Effects 中的 Events | 区块中的 Events |
+
+### 14.3 Checkpoint 处理策略
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Checkpoint 处理流程                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   收到 Checkpoint 数据                                           │
+│                    │                                             │
+│                    ▼                                             │
+│   ┌────────────────────────────────────┐                        │
+│   │   shouldSkipCheckpoint(sequence)   │                        │
+│   │   检查: sequence <= 当前已处理?     │                        │
+│   └────────────────┬───────────────────┘                        │
+│         是 │              │ 否                                   │
+│            ▼              ▼                                      │
+│   ┌─────────────┐  ┌─────────────────────────┐                  │
+│   │  跳过处理    │  │ BEGIN TRANSACTION       │                  │
+│   │  (幂等性)   │  │ 开始数据库事务           │                  │
+│   └─────────────┘  └───────────┬─────────────┘                  │
+│                                │                                 │
+│                                ▼                                 │
+│                    ┌───────────────────────┐                    │
+│                    │   处理 Checkpoint     │                    │
+│                    │   - 解析事件          │                    │
+│                    │   - 写入 TimescaleDB  │                    │
+│                    │   - 更新 Redis        │                    │
+│                    └───────────┬───────────┘                    │
+│                      成功 │         │ 失败                       │
+│                          ▼         ▼                             │
+│           ┌─────────────────┐  ┌─────────────────┐              │
+│           │ COMMIT          │  │ ROLLBACK        │              │
+│           │ 更新 checkpoints│  │ 抛出错误        │              │
+│           │ 表记录          │  │ 等待重试        │              │
+│           └─────────────────┘  └─────────────────┘              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 处理逻辑说明
+
+| 情况 | 处理方式 | 原因 |
+|-----|---------|------|
+| **正常 Checkpoint** (seq = current+1) | 正常处理，提交事务 | 顺序处理 |
+| **重复 Checkpoint** (seq <= current) | 跳过 | 幂等性保证 |
+| **处理失败** | 事务回滚，抛出错误 | 可重试，消息队列不 ack |
+| **跳跃 Checkpoint** (seq > current+1) | 刷新状态，尝试处理 | 可能是服务重启 |
+
+### 14.4 数据恢复机制
+
+由于 Sui Checkpoint 具有即时最终性，不会发生 Reorg，因此**不需要自动回滚机制**。
+
+但需要提供手动恢复工具用于以下场景：
+
+1. **Indexer 升级**: 数据格式变化需要重新同步
+2. **数据不一致**: 发现 Bug 导致的数据错误
+3. **测试环境重置**: 开发测试时清理数据
+
+#### 恢复工具设计
+
+```rust
+// recovery_tool.rs
+pub struct RecoveryTool {
+    redis: RedisConnection,
+    timescaledb: TimescaleClient,
+    clickhouse: ClickHouseClient,
+}
+
+impl RecoveryTool {
+    /// 清空 Redis 缓存
+    pub async fn clear_redis(&self) -> Result<()> {
+        self.redis.flushdb().await?;
+        Ok(())
+    }
+
+    /// 清空 TimescaleDB 数据 (保留表结构)
+    pub async fn clear_timescaledb(&self) -> Result<()> {
+        self.timescaledb.execute("TRUNCATE orders, fills, perpetual_positions, candles, funding_rates CASCADE").await?;
+        self.timescaledb.execute("TRUNCATE checkpoints").await?;
+        Ok(())
+    }
+
+    /// 重置到指定 Checkpoint
+    pub async fn reset_to_checkpoint(&self, sequence: u64) -> Result<()> {
+        // 1. 删除该 Checkpoint 之后的所有数据
+        self.timescaledb.execute(
+            "DELETE FROM fills WHERE checkpoint_sequence > $1",
+            &[&sequence]
+        ).await?;
+        self.timescaledb.execute(
+            "DELETE FROM orders WHERE checkpoint_sequence > $1",
+            &[&sequence]
+        ).await?;
+        // ... 其他表
+
+        // 2. 更新 checkpoints 表
+        self.timescaledb.execute(
+            "DELETE FROM checkpoints WHERE sequence_number > $1",
+            &[&sequence]
+        ).await?;
+
+        // 3. 清空 Redis 缓存 (将由重新同步填充)
+        self.clear_redis().await?;
+
+        Ok(())
+    }
+
+    /// 重新同步指定范围的 Checkpoint
+    pub async fn resync_checkpoints(&self, from: u64, to: u64) -> Result<()> {
+        // 从 Checkpoint Store 重新读取并处理
+        // ...
+        Ok(())
+    }
+}
+```
+
+#### 使用示例
+
+```bash
+# 清空所有数据并重新同步
+recovery-tool --clear-all --resync
+
+# 重置到指定 Checkpoint
+recovery-tool --reset-to-checkpoint 1000000
+
+# 重新同步指定范围
+recovery-tool --resync --from 1000000 --to 1001000
+```
+
+### 14.5 监控与告警
+
+为确保数据一致性，需要监控以下指标：
+
+| 指标 | 告警阈值 | 说明 |
+|-----|---------|------|
+| Checkpoint 处理延迟 | > 30 秒 | Indexer 落后于链上 |
+| Redis 与 TimescaleDB 订单数量差异 | > 100 | 可能存在数据不一致 |
+| Checkpoint 处理失败率 | > 1% | 需要排查错误原因 |
+| FastPath 与 Checkpoint 对账差异 | > 50 | 可能存在数据丢失 |
+
+---
+
+## 15. 与 DYDX 方案对比
 
 | 维度 | DYDX | Sui DEX | 说明 |
 |-----|------|---------|------|
@@ -1149,14 +2101,16 @@ async fn batch_update_orderbook(
 
 ---
 
-## 12. 后续工作
+## 16. 后续工作
 
-1. **Move 合约事件设计**: 定义 DEX 合约需要发射的事件类型
+1. **Move 合约事件设计**: 实现上述定义的 Move 事件结构
 2. **FastPath 实现**: 开发基于 Sui RPC 订阅的实时数据监听器
 3. **sui-indexer-alt 扩展**: 实现自定义 Pipeline Handler
-4. **数据库 Schema 细化**: 根据业务需求完善表结构
+4. **数据库 Schema 实现**: 根据第12节设计创建表结构
 5. **API 规范定义**: 制定完整的 OpenAPI 和 WebSocket 协议规范
-6. **性能测试**: 验证各组件在目标负载下的表现
+6. **数据一致性测试**: 验证双通道数据对账机制
+7. **恢复工具实现**: 开发第14节设计的数据恢复工具
+8. **性能测试**: 验证各组件在目标负载下的表现
 
 ---
 
@@ -1167,3 +2121,21 @@ async fn batch_update_orderbook(
 - DYDX Indexer 分析: `sui/mynotes/dex/analyst/dydx-indexer-analyst.md`
 - TimescaleDB 文档: https://docs.timescale.com/
 - ClickHouse 文档: https://clickhouse.com/docs/
+
+---
+
+## 附录: 与 DYDX Indexer 章节对照表
+
+| DYDX Indexer 章节 | Sui DEX Indexer 对应章节 | 说明 |
+|------------------|------------------------|------|
+| 1. 整体架构概览 | 2. 整体架构设计 | 架构总览 |
+| 2. 核心服务组件 | 5. 处理服务设计 | 服务组件详解 |
+| 3. 数据流详解 | 3. 双通道数据摄取设计 | 数据流设计 |
+| 4. 数据存储设计 | 4. 数据库选型与设计 | 存储层设计 |
+| 5. 高性能设计 | 8. 高性能优化策略 | 性能优化 |
+| 6. 客户端连接方式 | 6. API 服务设计 + 7. 客户端连接方式 | API 设计 |
+| 7. 完整数据流图 | 2. 整体架构设计 | 数据流图 |
+| 11. 代码级别详细分析 | 11. 代码级别详细分析 | **新增** - Move Events vs Off-chain Updates |
+| 12. 存储层详细分析 | 12. 存储层详细分析 | **新增** - 存储职责分离 |
+| 13. 索引服务部署架构 | 13. 部署架构分析 | **新增** - 部署架构 |
+| - | 14. Checkpoint 回滚策略 | **新增** - Sui 特有的 Checkpoint 处理 |

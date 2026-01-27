@@ -4,59 +4,145 @@
 
 ## 1. 整体架构概览
 
+### 1.1 系统架构全景图
+
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           DYDX v4 Indexer 架构                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌──────────────┐                                                        │
-│  │  Full Node   │  链上事件生成                                           │
-│  │  (Protocol)  │──────────────────┐                                     │
-│  └──────────────┘                  │                                     │
-│        │                           │                                     │
-│        │ Off-chain Updates         │ On-chain Events                     │
-│        │ (订单放置/取消/更新)        │ (成交/仓位/资金费率等)              │
-│        ▼                           ▼                                     │
-│  ┌─────────────────────────────────────────────────────────┐            │
-│  │                     Kafka Message Queue                  │            │
-│  │  Topics:                                                 │            │
-│  │  - to-ender (链上事件)                                   │            │
-│  │  - to-vulcan (链下订单更新)                               │            │
-│  │  - to-websockets-* (WebSocket推送)                       │            │
-│  └─────────────────────────────────────────────────────────┘            │
-│        │                           │                                     │
-│        ▼                           ▼                                     │
-│  ┌──────────────┐           ┌──────────────┐                            │
-│  │    Ender     │           │    Vulcan    │                            │
-│  │ (链上事件处理) │           │(订单更新处理) │                            │
-│  └──────────────┘           └──────────────┘                            │
-│        │                           │                                     │
-│        ├───────────────────────────┼──────────────────┐                 │
-│        ▼                           ▼                  ▼                 │
-│  ┌──────────────┐           ┌──────────────┐   ┌──────────────┐        │
-│  │  PostgreSQL  │           │    Redis     │   │    Kafka     │        │
-│  │ (持久化存储)  │           │ (订单簿缓存)  │   │ (WebSocket)  │        │
-│  └──────────────┘           └──────────────┘   └──────────────┘        │
-│        │                           │                  │                 │
-│        └───────────────────────────┼──────────────────┘                 │
-│                                    ▼                                     │
-│  ┌─────────────────────────────────────────────────────────┐            │
-│  │                       Comlink                            │            │
-│  │                   (REST API 服务)                        │            │
-│  └─────────────────────────────────────────────────────────┘            │
-│                                    │                                     │
-│  ┌─────────────────────────────────────────────────────────┐            │
-│  │                        Socks                             │            │
-│  │                  (WebSocket 服务)                        │            │
-│  └─────────────────────────────────────────────────────────┘            │
-│                                    │                                     │
-│                                    ▼                                     │
-│  ┌─────────────────────────────────────────────────────────┐            │
-│  │                       客户端                              │            │
-│  │          (前端应用 / 交易机器人 / 第三方服务)              │            │
-│  └─────────────────────────────────────────────────────────┘            │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              DYDX v4 Indexer 完整架构                                         │
+├─────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────┐   │
+│  │                              客户端层 (Client Layer)                                  │   │
+│  │                                                                                       │   │
+│  │   ┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐    │   │
+│  │   │  交易前端  │   │ 做市机器人 │   │  API 用户  │   │  数据分析  │   │ 第三方服务 │    │   │
+│  │   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘    │   │
+│  │         │               │               │               │               │           │   │
+│  │         └───────────────┴───────┬───────┴───────────────┴───────────────┘           │   │
+│  │                                 │                                                    │   │
+│  │                    下单/取消    │    查询(REST) / 订阅(WebSocket)                     │   │
+│  │                                 │                                                    │   │
+│  └─────────────────────────────────┼────────────────────────────────────────────────────┘   │
+│                                    │                                                        │
+│          ┌─────────────────────────┼─────────────────────────┐                             │
+│          │                         │                         │                             │
+│          ▼                         ▼                         ▼                             │
+│  ┌───────────────┐        ┌───────────────┐        ┌───────────────┐                      │
+│  │   验证器节点   │        │   Comlink     │        │    Socks      │                      │
+│  │  (Validator)  │        │  (REST API)   │        │  (WebSocket)  │                      │
+│  │               │        │               │        │               │                      │
+│  │  • 接收交易   │        │  • 历史查询   │        │  • 实时推送   │                      │
+│  │  • 参与共识   │        │  • 订单查询   │        │  • 订单簿更新 │                      │
+│  │  • 出块       │        │  • 仓位查询   │        │  • 成交更新   │                      │
+│  └───────┬───────┘        └───────┬───────┘        └───────┬───────┘                      │
+│          │                        │                        │                               │
+│          │ CometBFT P2P           │ PostgreSQL + Redis     │ Kafka (to-websockets-*)      │
+│          ▼                        ▼                        ▼                               │
+│  ════════════════════════════════════════════════════════════════════════════════════     │
+│                                                                                            │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                         Indexer 专用全节点 (Full Node)                               │  │
+│  │                                                                                      │  │
+│  │   --indexer-kafka-conn-str=kafka:9092  --indexer-send-offchain-data=true           │  │
+│  │                                                                                      │  │
+│  │   ┌─────────────────────────────────────────────────────────────────────────────┐  │  │
+│  │   │                           ABCI 应用层                                        │  │  │
+│  │   │                                                                              │  │  │
+│  │   │   ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐    │  │  │
+│  │   │   │   CheckTx 阶段  │      │  DeliverTx 阶段 │      │ EndBlocker 阶段 │    │  │  │
+│  │   │   │                 │      │                 │      │                 │    │  │  │
+│  │   │   │ • 短期订单验证  │      │ • 有状态订单处理│      │ • 资金费率计算  │    │  │  │
+│  │   │   │ • 订单簿更新    │      │ • 订单匹配执行  │      │ • 收集区块事件  │    │  │  │
+│  │   │   │                 │      │ • 仓位更新      │      │ • ProduceBlock  │    │  │  │
+│  │   │   │   MemClob       │      │ • 转账处理      │      │                 │    │  │  │
+│  │   │   └────────┬────────┘      └────────┬────────┘      └────────┬────────┘    │  │  │
+│  │   │            │                        │                        │             │  │  │
+│  │   │            │ Off-chain Updates      │ On-chain Events        │             │  │  │
+│  │   │            │ (乐观状态,可回滚)       │ (最终确定状态)          │             │  │  │
+│  │   │            │                        │                        │             │  │  │
+│  │   └────────────┼────────────────────────┼────────────────────────┼─────────────┘  │  │
+│  │                │                        │                        │                │  │
+│  │                ▼                        └────────────┬───────────┘                │  │
+│  │   ┌────────────────────┐                            │                             │  │
+│  │   │ SendOffchainData() │                            ▼                             │  │
+│  │   │ (实时,毫秒级)       │               ┌────────────────────┐                    │  │
+│  │   └─────────┬──────────┘               │ SendOnchainData()  │                    │  │
+│  │             │                          │ (区块级,1-2秒)      │                    │  │
+│  │             │                          └─────────┬──────────┘                    │  │
+│  │             │                                    │                               │  │
+│  └─────────────┼────────────────────────────────────┼───────────────────────────────┘  │
+│                │                                    │                                   │
+│                ▼                                    ▼                                   │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────┐│
+│  │                                Kafka 消息队列                                        ││
+│  │                                                                                      ││
+│  │  ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────────┐  ││
+│  │  │      to-vulcan       │  │      to-ender        │  │   to-websockets-*        │  ││
+│  │  │   (链下订单更新)      │  │   (链上区块事件)      │  │   (WebSocket 推送)       │  ││
+│  │  │                      │  │                      │  │                          │  ││
+│  │  │  • OrderPlaceV1      │  │  • OrderFillEvent    │  │  • orderbooks            │  ││
+│  │  │  • OrderUpdateV1     │  │  • SubaccountUpdate  │  │  • trades                │  ││
+│  │  │  • OrderRemoveV1     │  │  • TransferEvent     │  │  • subaccounts           │  ││
+│  │  │  • OrderReplaceV1    │  │  • FundingEvent      │  │  • candles               │  ││
+│  │  │                      │  │  • StatefulOrder     │  │  • markets               │  ││
+│  │  │  延迟: 毫秒级        │  │  延迟: ~1-2秒        │  │  • block-height          │  ││
+│  │  │  状态: 乐观          │  │  状态: 最终确定      │  │                          │  ││
+│  │  └──────────┬───────────┘  └──────────┬───────────┘  └────────────┬─────────────┘  ││
+│  │             │                         │                           │                ││
+│  └─────────────┼─────────────────────────┼───────────────────────────┼────────────────┘│
+│                │                         │                           │                  │
+│                ▼                         ▼                           │                  │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────┐│
+│  │                           Indexer 服务集群 (统一部署)                                ││
+│  │                                                                                      ││
+│  │  ┌─────────────────────┐         ┌─────────────────────┐                           ││
+│  │  │       Vulcan        │         │        Ender        │                           ││
+│  │  │   (链下更新处理)     │         │    (链上事件处理)    │                           ││
+│  │  │                     │         │                     │                           ││
+│  │  │  • 更新订单状态     │         │  • 解析区块事件     │                           ││
+│  │  │  • 更新订单簿层级   │         │  • 写入成交记录     │                           ││
+│  │  │  • 乐观填充状态同步 │         │  • 更新订单状态     │        ┌──────────────┐   ││
+│  │  │                     │         │  • 更新仓位/余额    │        │  Roundtable  │   ││
+│  │  │       │             │         │  • 计算 K线数据     │        │  (定时任务)   │   ││
+│  │  │       ▼             │         │                     │        │              │   ││
+│  │  │  ┌─────────┐        │         │       │             │        │ • PnL 计算   │   ││
+│  │  │  │  Redis  │        │         │       ▼             │        │ • 排行榜     │   ││
+│  │  │  └─────────┘        │         │  ┌──────────┐       │        │ • 数据聚合   │   ││
+│  │  │   • OrdersCache     │         │  │PostgreSQL│       │        └──────────────┘   ││
+│  │  │   • OrderbookLevels │         │  └──────────┘       │                           ││
+│  │  │   • SubaccountOrders│         │   • orders          │                           ││
+│  │  │                     │         │   • fills           │                           ││
+│  │  │       │             │         │   • perpetual_      │                           ││
+│  │  │       ▼             │         │     positions       │                           ││
+│  │  │  推送到 Kafka       │         │   • candles         │                           ││
+│  │  │  to-websockets-*    │─────────│   • funding_index   │                           ││
+│  │  │                     │         │   • transfers       │                           ││
+│  │  └─────────────────────┘         └─────────────────────┘                           ││
+│  │                                                                                      ││
+│  └──────────────────────────────────────────────────────────────────────────────────────┘│
+│                                                                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### 1.2 双通道数据流对比
+
+| 特性 | Off-chain Updates (链下更新) | On-chain Events (链上事件) |
+|-----|------------------------------|---------------------------|
+| **触发阶段** | CheckTx / PrepareProposal | DeliverTx / EndBlocker |
+| **数据类型** | 短期订单状态 (放置/取消/更新) | 成交/仓位/转账/资金费率 |
+| **Kafka Topic** | to-vulcan | to-ender |
+| **处理服务** | Vulcan | Ender |
+| **存储目标** | Redis (内存缓存) | PostgreSQL (持久化) |
+| **延迟** | 毫秒级 | 区块时间 (~1-2秒) |
+| **状态性质** | 乐观状态 (可回滚) | 最终确定状态 |
+| **典型用途** | 实时订单簿显示 | 历史查询/审计 |
+
+### 1.3 关键设计特点
+
+1. **双通道分离**: 链上最终状态与链下乐观状态分开处理，兼顾实时性与一致性
+2. **Kafka 解耦**: 全节点与 Indexer 服务通过消息队列异步通信，支持削峰填谷
+3. **存储分层**: Redis 处理高频读写，PostgreSQL 保障数据持久化
+4. **统一部署**: 所有 Indexer 服务共享同一套 Kafka/PostgreSQL/Redis，降低运维复杂度
 
 ## 2. 核心服务组件
 
@@ -377,29 +463,79 @@ await Promise.all([
 
 ## 6. 客户端连接方式
 
-### 6.1 REST API (Comlink 服务)
+### 6.1 REST API 完整列表与数据来源 (Comlink 服务)
 
-**端点示例**:
-```
-GET /v4/addresses/{address}/subaccountNumber/{subaccountNumber}
-GET /v4/orders?address={address}&subaccountNumber={subaccountNumber}&status={status}
-GET /v4/orderbooks/perpetualMarket/{ticker}
-GET /v4/candles/perpetualMarkets/{ticker}?resolution={resolution}
-GET /v4/trades/perpetualMarket/{ticker}
-GET /v4/perpetualMarkets
-GET /v4/height
-```
+基于对 `dydx-v4-chain/indexer/services/comlink/src/controllers/api/v4/` 目录下所有控制器的分析：
 
-**数据来源**:
-- PostgreSQL: 历史数据、订单记录、仓位等
-- Redis: 实时订单簿 (`OrderbookLevelsCache.getOrderBookLevels()`)
+#### 订单相关 API
+| API | 数据来源 | 说明 |
+|-----|---------|------|
+| `GET /v4/orders` | **PostgreSQL + Redis** | OrderTable + OrdersCache/SubaccountOrderIdsCache 合并 |
+| `GET /v4/orders/parentSubaccountNumber` | **PostgreSQL + Redis** | 同上，父账户视角 |
+| `GET /v4/orders/:orderId` | **PostgreSQL + Redis** | OrderTable.findById + OrdersCache.getOrder |
 
+> **关键代码** (`orders-controller.ts`): 先从 Redis 获取活跃订单，再从 PostgreSQL 查询历史订单，最后合并两者数据。PostgreSQL 被视为权威数据源 (source of truth)。
+
+#### 成交相关 API
+| API | 数据来源 | 说明 |
+|-----|---------|------|
+| `GET /v4/fills` | **PostgreSQL** | FillTable |
+| `GET /v4/fills/parentSubaccountNumber` | **PostgreSQL** | FillTable (父账户视角) |
+| `GET /v4/trades/perpetualMarket/:ticker` | **PostgreSQL** | FillTable (过滤 Liquidity.TAKER) |
+
+#### 仓位相关 API
+| API | 数据来源 | 说明 |
+|-----|---------|------|
+| `GET /v4/perpetualPositions` | **PostgreSQL** | PerpetualPositionTable + FundingIndexUpdatesTable |
+| `GET /v4/perpetualPositions/parentSubaccountNumber` | **PostgreSQL** | 同上 (父账户视角) |
+| `GET /v4/assetPositions` | **PostgreSQL** | AssetPositionTable |
+
+#### 账户相关 API
+| API | 数据来源 | 说明 |
+|-----|---------|------|
+| `GET /v4/addresses/:address` | **PostgreSQL** | SubaccountTable + 多表联查 |
+| `GET /v4/addresses/:address/subaccountNumber/:num` | **PostgreSQL** | 同上 |
+| `GET /v4/addresses/:address/parentSubaccountNumber/:num` | **PostgreSQL** | 同上 |
+
+#### 市场数据 API
+| API | 数据来源 | 说明 |
+|-----|---------|------|
+| `GET /v4/orderbooks/perpetualMarket/:ticker` | **Redis** | OrderbookLevelsCache (实时订单簿) |
+| `GET /v4/perpetualMarkets` | **PostgreSQL + 内存缓存** | PerpetualMarketTable + perpetualMarketRefresher + liquidityTierRefresher |
+| `GET /v4/candles/perpetualMarkets/:ticker` | **PostgreSQL** | CandleTable |
+| `GET /v4/sparklines` | **PostgreSQL** | CandleTable (聚合计算) |
+
+#### 资金费率 API
+| API | 数据来源 | 说明 |
+|-----|---------|------|
+| `GET /v4/historicalFunding/:ticker` | **PostgreSQL** | FundingIndexUpdatesTable |
+| `GET /v4/fundingPayments` | **PostgreSQL** | FundingIndexUpdatesTable |
+
+#### 转账相关 API
+| API | 数据来源 | 说明 |
+|-----|---------|------|
+| `GET /v4/transfers` | **PostgreSQL** | TransferTable |
+| `GET /v4/transfers/parentSubaccountNumber` | **PostgreSQL** | TransferTable |
+| `GET /v4/transfers/between` | **PostgreSQL** | TransferTable |
+
+#### 其他 API
+| API | 数据来源 | 说明 |
+|-----|---------|------|
+| `GET /v4/height` | **PostgreSQL** | BlockTable.getLatest() |
+| `GET /v4/time` | **内存** | 服务器时间 |
+| `GET /v4/historicalPnl` | **PostgreSQL** | PnlTicksTable |
+| `GET /v4/historicalBlockTradingRewards/:address` | **PostgreSQL** | TradingRewardAggregationTable |
+| `GET /v4/historicalTradingRewardAggregations/:address` | **PostgreSQL** | TradingRewardAggregationTable |
+| `GET /v4/vault/megavault/positions` | **PostgreSQL** | VaultTable |
+| `GET /v4/affiliates/metadata` | **PostgreSQL** | AffiliateInfoTable |
+
+**订单簿查询示例代码**:
 ```typescript
 // indexer/services/comlink/src/controllers/api/v4/orderbook-controller.ts
 async getPerpetualMarket(ticker: string): Promise<OrderbookResponseObject> {
   const perpetualMarket = perpetualMarketRefresher.getPerpetualMarketFromTicker(ticker);
 
-  // 从 Redis 获取订单簿
+  // 从 Redis 获取订单簿 (实时数据)
   const orderbookLevels = await OrderbookLevelsCache.getOrderBookLevels(
     ticker,
     redisReadOnlyClient,
@@ -414,37 +550,39 @@ async getPerpetualMarket(ticker: string): Promise<OrderbookResponseObject> {
 }
 ```
 
-### 6.2 WebSocket (Socks 服务)
+### 6.2 WebSocket 订阅频道与数据来源 (Socks 服务)
 
-**订阅频道**:
-| 频道 | ID 格式 | 数据内容 |
-|-----|--------|---------|
-| `v4_accounts` | `{address}/{subaccountNumber}` | 子账户更新、订单状态 |
-| `v4_parent_accounts` | `{address}/{parentSubaccountNumber}` | 父账户更新 |
-| `v4_orderbook` | `{ticker}` | 订单簿增量更新 |
-| `v4_trades` | `{ticker}` | 成交推送 |
-| `v4_candles` | `{ticker}/{resolution}` | K线更新 |
-| `v4_markets` | (无) | 市场参数更新 |
-| `v4_block_height` | (无) | 区块高度更新 |
+| 频道 | ID 格式 | 初始数据来源 | 增量更新来源 | Kafka Topic |
+|-----|--------|------------|------------|-------------|
+| `v4_orderbook` | `{ticker}` | Comlink REST → **Redis** | Kafka | `to-websockets-orderbooks` |
+| `v4_trades` | `{ticker}` | Comlink REST → **PostgreSQL** | Kafka | `to-websockets-trades` |
+| `v4_candles` | `{ticker}/{resolution}` | Comlink REST → **PostgreSQL** | Kafka | `to-websockets-candles` |
+| `v4_markets` | (无) | Comlink REST → **PostgreSQL** | Kafka | `to-websockets-markets` |
+| `v4_accounts` | `{address}/{subaccountNumber}` | Comlink REST → **PostgreSQL** | Kafka | `to-websockets-subaccounts` |
+| `v4_parent_accounts` | `{address}/{parentSubaccountNumber}` | Comlink REST → **PostgreSQL** | Kafka | `to-websockets-subaccounts` |
+| `v4_block_height` | (无) | Comlink REST → **PostgreSQL** | Kafka | `to-websockets-block-height` |
 
 **订阅流程**:
 ```
-客户端                    Socks                      Comlink
-   │                        │                           │
-   │ 1. 发送订阅消息         │                           │
-   │ {"type":"subscribe",   │                           │
-   │  "channel":"v4_orderbook",                         │
-   │  "id":"BTC-USD"}       │                           │
-   ├───────────────────────►│                           │
-   │                        │ 2. 获取初始数据            │
-   │                        ├──────────────────────────►│
-   │                        │◄──────────────────────────┤
-   │ 3. 返回初始快照         │                           │
-   │◄───────────────────────┤                           │
-   │                        │                           │
-   │ 4. 后续增量更新         │                           │
-   │ (从 Kafka 消费推送)     │                           │
-   │◄───────────────────────┤                           │
+客户端                    Socks                      Comlink               Kafka
+   │                        │                           │                    │
+   │ 1. 发送订阅消息         │                           │                    │
+   │ {"type":"subscribe",   │                           │                    │
+   │  "channel":"v4_orderbook",                         │                    │
+   │  "id":"BTC-USD"}       │                           │                    │
+   ├───────────────────────►│                           │                    │
+   │                        │ 2. 获取初始数据            │                    │
+   │                        │  (调用 REST API)          │                    │
+   │                        ├──────────────────────────►│                    │
+   │                        │     (从 Redis 查询)        │                    │
+   │                        │◄──────────────────────────┤                    │
+   │ 3. 返回初始快照         │                           │                    │
+   │◄───────────────────────┤                           │                    │
+   │                        │                           │                    │
+   │                        │ 4. 持续消费 Kafka          │                    │
+   │                        │◄───────────────────────────────────────────────┤
+   │ 5. 推送增量更新         │                           │                    │
+   │◄───────────────────────┤                           │                    │
 ```
 
 **初始数据获取**:
@@ -453,23 +591,23 @@ async getPerpetualMarket(ticker: string): Promise<OrderbookResponseObject> {
 private getInitialEndpointForSubscription(channel: Channel, id?: string): string | undefined {
   switch (channel) {
     case (Channel.V4_BLOCK_HEIGHT):
-      return `${COMLINK_URL}/v4/height`;
+      return `${COMLINK_URL}/v4/height`;            // → PostgreSQL
     case (Channel.V4_MARKETS):
-      return `${COMLINK_URL}/v4/perpetualMarkets`;
+      return `${COMLINK_URL}/v4/perpetualMarkets`;  // → PostgreSQL + 内存缓存
     case (Channel.V4_TRADES):
-      return `${COMLINK_URL}/v4/trades/perpetualMarket/${id}`;
+      return `${COMLINK_URL}/v4/trades/perpetualMarket/${id}`;  // → PostgreSQL
     case (Channel.V4_ORDERBOOK):
-      return `${COMLINK_URL}/v4/orderbooks/perpetualMarket/${id}`;
+      return `${COMLINK_URL}/v4/orderbooks/perpetualMarket/${id}`;  // → Redis
     case (Channel.V4_CANDLES):
       const { ticker, resolution } = this.parseCandleChannelId(id);
-      return `${COMLINK_URL}/v4/candles/perpetualMarkets/${ticker}?resolution=${resolution}`;
+      return `${COMLINK_URL}/v4/candles/perpetualMarkets/${ticker}?resolution=${resolution}`;  // → PostgreSQL
     // ...
   }
 }
 ```
 
 **消息转发机制** (`message-forwarder.ts`):
-- 从 Kafka WebSocket topics 消费消息
+- 从 Kafka WebSocket topics 消费消息 (由 Ender/Vulcan 写入)
 - 根据订阅关系分发到对应连接
 - 支持批量消息发送 (`batched` 参数)
 
@@ -1693,6 +1831,391 @@ CREATE TABLE blocks (
 | **Redis 作为实时层** | 订单簿需要毫秒级响应，PostgreSQL 无法满足；Redis 支持复杂数据结构 (HSET 用于价格层级) |
 | **双缓存同步** | Ender 更新 StateFilledQuantumsCache 通知 Vulcan 实际链上状态，实现最终一致性 |
 | **PostgreSQL 读写分离** | 查询操作使用只读副本，减轻主库压力 |
+
+---
+
+## 13. 索引服务部署架构分析
+
+### 13.1 核心结论
+
+**DYDX 索引服务是统一部署一套，不是每个验证器节点配套启动一份。**
+
+### 13.2 架构图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                         DYDX 索引服务部署架构                                         │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│   ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│   │                          验证器网络层                                        │   │
+│   │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐               │   │
+│   │  │ Validator │  │ Validator │  │ Validator │  │ Validator │               │   │
+│   │  │    #1     │  │    #2     │  │    #3     │  │    #N     │               │   │
+│   │  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘               │   │
+│   │        │              │              │              │                       │   │
+│   │        └──────────────┴──────────────┴──────────────┘                       │   │
+│   │                           │                                                  │   │
+│   │                           │ CometBFT P2P 共识                                │   │
+│   │                           ▼                                                  │   │
+│   └─────────────────────────────────────────────────────────────────────────────┘   │
+│                               │                                                      │
+│                               │ 区块同步                                             │
+│                               ▼                                                      │
+│   ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│   │                    Indexer 专用全节点 (Full Node)                            │   │
+│   │                                                                              │   │
+│   │   配置参数:                                                                   │   │
+│   │   --indexer-kafka-addrs=kafka:9092                                          │   │
+│   │   --indexer-send-offchain-data=true                                         │   │
+│   │                                                                              │   │
+│   │   ┌─────────────────────────────┐    ┌─────────────────────────────┐        │   │
+│   │   │  On-chain Event Manager     │    │  Off-chain Update Manager   │        │   │
+│   │   │  (DeliverTx/EndBlocker)    │    │  (CheckTx/PrepareProposal)  │        │   │
+│   │   └────────────┬────────────────┘    └────────────┬────────────────┘        │   │
+│   │                │                                  │                          │   │
+│   │                │ to-ender                         │ to-vulcan                │   │
+│   │                ▼                                  ▼                          │   │
+│   └────────────────┼──────────────────────────────────┼──────────────────────────┘   │
+│                    │                                  │                              │
+│                    └────────────────┬─────────────────┘                              │
+│                                     │                                                │
+│                                     ▼                                                │
+│   ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│   │                              Kafka                                           │   │
+│   │  Topics: to-ender, to-vulcan, to-websockets-*, ...                          │   │
+│   └─────────────────────────────────┬───────────────────────────────────────────┘   │
+│                                     │                                                │
+│                                     ▼                                                │
+│   ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│   │                   Indexer 服务集群 (统一部署)                                 │   │
+│   │                                                                              │   │
+│   │   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │   │
+│   │   │  Ender   │  │  Vulcan  │  │ Comlink  │  │  Socks   │  │Roundtable│     │   │
+│   │   │ (on-chain│  │(off-chain│  │ (REST    │  │(WebSocket│  │ (定时    │     │   │
+│   │   │  events) │  │ updates) │  │   API)   │  │  server) │  │  任务)   │     │   │
+│   │   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘     │   │
+│   │        │              │              │              │              │          │   │
+│   │        └──────────────┴──────────────┴──────────────┴──────────────┘          │   │
+│   │                                     │                                         │   │
+│   └─────────────────────────────────────┼─────────────────────────────────────────┘   │
+│                                         │                                            │
+│                            ┌────────────┴────────────┐                               │
+│                            ▼                         ▼                               │
+│                      ┌───────────┐             ┌───────────┐                         │
+│                      │PostgreSQL │             │   Redis   │                         │
+│                      │ (持久化)   │             │ (实时缓存) │                         │
+│                      └───────────┘             └───────────┘                         │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 13.3 关键代码证据
+
+#### 全节点配置 (`protocol/indexer/flags.go`)
+```go
+// Indexer 相关命令行参数
+--indexer-kafka-addrs      // 指定 Kafka 地址
+--indexer-send-offchain-data  // 启用链下数据发送
+```
+
+#### 消息发送 (`protocol/indexer/msgsender/msgsender_kafka.go`)
+```go
+// 全节点通过 Kafka 发送事件到 Indexer
+type IndexerMessageSenderKafka struct {
+    producer   sarama.AsyncProducer
+    // ...
+}
+
+// SendOnchainData 发送链上数据到 to-ender topic
+func (msgSender *IndexerMessageSenderKafka) SendOnchainData(message Message) {
+    msgSender.send(&sarama.ProducerMessage{
+        Topic:   ON_CHAIN_KAFKA_TOPIC,  // "to-ender"
+        // ...
+    })
+}
+
+// SendOffchainData 发送链下数据到 to-vulcan topic
+func (msgSender *IndexerMessageSenderKafka) SendOffchainData(message Message) {
+    msgSender.send(&sarama.ProducerMessage{
+        Topic:   OFF_CHAIN_KAFKA_TOPIC,  // "to-vulcan"
+        // ...
+    })
+}
+```
+
+#### Indexer 服务部署 (`indexer/docker-compose-local-deployment.yml`)
+```yaml
+services:
+  kafka:        # 共享 Kafka 实例
+  postgres:     # 共享 PostgreSQL 实例
+  redis:        # 共享 Redis 实例
+
+  ender:        # 链上事件处理服务
+  vulcan:       # 链下更新处理服务
+  comlink:      # REST API 服务
+  socks:        # WebSocket 服务
+  roundtable:   # 定时任务服务
+```
+
+### 13.4 设计原理
+
+| 特性 | 设计 | 原因 |
+|-----|------|------|
+| **统一部署** | 一套 Indexer 服务 | 降低运维复杂度，保证数据一致性 |
+| **专用全节点** | 独立于验证器 | 不影响验证器性能，专注于事件收集 |
+| **Kafka 解耦** | 消息队列 | 异步处理，削峰填谷，保证可靠性 |
+| **水平扩展** | 多实例 Comlink/Socks | 支持高并发 API 请求 |
+
+### 13.5 节点类型详解与辨别方法
+
+#### 三种节点类型对比
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      DYDX 节点类型                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    Validator (验证器)                    │    │
+│  │  --non-validating-full-node=false                       │    │
+│  │  --indexer-kafka-conn-str=<空>                          │    │
+│  │                                                          │    │
+│  │  功能: 参与共识、出块、运行 Oracle/Bridge Daemon          │    │
+│  │  Indexer: ❌ 不发送事件                                   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │               Regular Full Node (普通全节点)             │    │
+│  │  --non-validating-full-node=true                        │    │
+│  │  --indexer-kafka-conn-str=<空>                          │    │
+│  │                                                          │    │
+│  │  功能: 同步区块链状态、提供 RPC 服务                      │    │
+│  │  Indexer: ❌ 不发送事件                                   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │            Indexer Full Node (Indexer 专用全节点)        │    │
+│  │  --non-validating-full-node=true                        │    │
+│  │  --indexer-kafka-conn-str=kafka:9092                    │    │
+│  │  --indexer-send-offchain-data=true                      │    │
+│  │                                                          │    │
+│  │  功能: 同步区块 + 发送链上/链下事件到 Kafka               │    │
+│  │  Indexer: ✅ 发送事件到 Kafka                            │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 关键配置参数对比
+
+| 参数 | Validator | 普通全节点 | Indexer 全节点 |
+|-----|-----------|-----------|---------------|
+| `--non-validating-full-node` | false | true | true |
+| `--indexer-kafka-conn-str` | 空 | 空 | kafka:9092 |
+| `--indexer-send-offchain-data` | N/A | N/A | true |
+
+#### 代码判断逻辑
+
+**1. MessageSender 初始化** (`protocol/app/app.go:2078-2113`)
+
+```go
+func getIndexerFromOptions(appOpts, logger) (msgsender.IndexerMessageSender, indexer.IndexerFlags) {
+    indexerFlags := indexer.GetIndexerFlagValuesFromOptions(appOpts)
+
+    var indexerMessageSender msgsender.IndexerMessageSender
+    if len(indexerFlags.KafkaAddrs) == 0 {
+        // 普通节点：使用 Noop 实现，不发送任何消息
+        indexerMessageSender = msgsender.NewIndexerMessageSenderNoop()
+    } else {
+        // Indexer 节点：使用 Kafka 实现，发送消息到 Kafka
+        indexerMessageSender, _ = msgsender.NewIndexerMessageSenderKafka(indexerFlags, nil, logger)
+    }
+    return indexerMessageSender, indexerFlags
+}
+```
+
+**2. Enabled() 检查** (`protocol/indexer/indexer_manager/event_manager.go:46-48`)
+
+```go
+func (i *indexerEventManagerImpl) Enabled() bool {
+    return i.indexerMessageSender.Enabled()
+}
+```
+
+**3. 条件执行** (`protocol/x/clob/keeper/orders.go:221`)
+
+```go
+// Off-chain update messages should be only be returned if the `IndexerMessageSender`
+// is enabled (`msgSender.Enabled()` returns true).
+```
+
+#### 如何辨别节点类型
+
+**方法1: 检查启动日志**
+```
+[INFO] Parsed Indexer flags Flags={KafkaAddrs:[kafka:9092] MaxRetries:20 SendOffchainData:true}
+```
+- 如果 `KafkaAddrs` 不为空 → Indexer 节点
+- 如果 `KafkaAddrs` 为空 → 普通节点
+
+**方法2: 检查启动命令**
+```bash
+# Indexer 全节点
+dydxprotocold start --non-validating-full-node=true --indexer-kafka-conn-str=kafka:9092
+
+# 普通全节点
+dydxprotocold start --non-validating-full-node=true
+
+# 验证器
+dydxprotocold start --non-validating-full-node=false
+```
+
+**方法3: 代码中判断**
+```go
+if k.indexerEventManager.Enabled() {
+    // 只有 Indexer 节点会执行这里的代码
+    k.SendOffchainData(...)
+}
+```
+
+#### Indexer 节点额外工作
+
+| 工作 | 触发时机 | 数据流向 |
+|-----|---------|---------|
+| **链上事件** | DeliverTx/EndBlocker | → to-ender → Ender → PostgreSQL |
+| **链下更新** | CheckTx/PrepareProposal | → to-vulcan → Vulcan → Redis |
+
+### 13.6 扩展性设计
+
+```
+                    ┌─────────────────┐
+                    │   Full Node #1  │
+                    │  (Primary)      │──┐
+                    └─────────────────┘  │
+                                         │
+                    ┌─────────────────┐  │    ┌───────────┐
+                    │   Full Node #2  │──┼───▶│   Kafka   │
+                    │  (Backup)       │  │    └─────┬─────┘
+                    └─────────────────┘  │          │
+                                         │          ▼
+                    ┌─────────────────┐  │    ┌───────────┐
+                    │   Full Node #N  │──┘    │  Indexer  │
+                    │  (Geo-replica)  │       │  Services │
+                    └─────────────────┘       └───────────┘
+```
+
+- **多全节点**: 可部署多个全节点提高数据源可用性
+- **Kafka 分区**: 支持消费者组扩展处理能力
+- **服务副本**: Comlink/Socks 可水平扩展应对高并发
+
+### 13.7 区块回滚处理机制
+
+#### 核心发现：DYDX Indexer 没有自动区块回滚机制
+
+DYDX Indexer 基于 CometBFT 的即时最终性假设，**不处理区块链 Reorg（重组）**。
+
+#### Ender 区块处理流程
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Ender 区块处理流程                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   收到 Kafka 消息 (IndexerTendermintBlock)                       │
+│                    │                                             │
+│                    ▼                                             │
+│   ┌────────────────────────────────────┐                        │
+│   │     shouldSkipBlock(blockHeight)   │                        │
+│   │  检查: block.height <= 当前高度?    │                        │
+│   └────────────────┬───────────────────┘                        │
+│         是 │              │ 否                                   │
+│            ▼              ▼                                      │
+│   ┌─────────────┐  ┌─────────────────────────┐                  │
+│   │  跳过处理    │  │ Transaction.start()     │                  │
+│   │  (已处理过)  │  │ 开始 PostgreSQL 事务     │                  │
+│   └─────────────┘  └───────────┬─────────────┘                  │
+│                                │                                 │
+│                                ▼                                 │
+│                    ┌───────────────────────┐                    │
+│                    │   BlockProcessor      │                    │
+│                    │   处理区块事件         │                    │
+│                    └───────────┬───────────┘                    │
+│                      成功 │         │ 失败                       │
+│                          ▼         ▼                             │
+│           ┌─────────────────┐  ┌─────────────────┐              │
+│           │Transaction.commit│  │Transaction.rollback│           │
+│           │ 提交事务         │  │ 回滚事务          │              │
+│           │ 更新 blockCache  │  │ 刷新数据缓存      │              │
+│           └─────────────────┘  └─────────────────┘              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 代码证据 (`indexer/services/ender/src/caches/block-cache.ts:42-93`)
+
+```typescript
+/**
+ * If block.height <= currentBlockHeight, then we can skip processing the block.
+ * If block.height == currentBlockHeight + 1, then we should process the block.
+ * If block.height > currentBlockHeight + 1, then refresh the cache and...
+ */
+export async function shouldSkipBlock(blockHeight: string): Promise<boolean> {
+  if (blockAlreadyProcessed(blockHeight)) {
+    // 如果区块高度 <= 当前已处理高度，直接跳过
+    stats.increment(`${config.SERVICE_NAME}.block_already_parsed`, 1);
+    return true;
+  }
+  // ...
+}
+
+function blockAlreadyProcessed(blockHeight: string): boolean {
+  return Big(currentBlockHeight).gte(blockHeight);
+}
+```
+
+#### 处理逻辑说明
+
+| 情况 | 处理方式 | 原因 |
+|-----|---------|------|
+| **正常区块** (height = current+1) | 正常处理，提交事务 | 顺序处理 |
+| **重复区块** (height <= current) | 跳过 | 幂等性保证 |
+| **处理失败** | 事务回滚，抛出错误，Kafka 不 ack | 可重试 |
+| **区块链 Reorg** | ⚠️ 无自动处理 | CometBFT 提供即时最终性 |
+
+#### 为什么没有 Reorg 处理？
+
+1. **CometBFT 最终性**: DYDX 使用 CometBFT 共识，区块一旦提交具有即时最终性，不会发生 Reorg
+2. **单一数据源**: 只有一个 Indexer 全节点发送事件，不会出现分叉数据
+3. **设计假设**: 从全节点收到的事件被认为是最终的、不可逆的
+
+#### 手动恢复机制 (Bazooka 服务)
+
+如果确实需要回滚（如升级、数据修复），可通过 Bazooka 服务手动操作：
+
+```typescript
+// indexer/services/bazooka/src/index.ts
+interface BazookaEventJson {
+  migrate: boolean,           // 运行数据库迁移
+  rollback: boolean,          // 回滚最新一批数据库迁移
+  clear_db: boolean,          // 清空 PostgreSQL 数据（保留表结构）
+  reset_db: boolean,          // 重置数据库和所有迁移
+  clear_kafka_topics: boolean, // 清空 Kafka topics
+  clear_redis: boolean,       // 清空 Redis 缓存
+  force: boolean,             // 在 testnet/mainnet 执行破坏性操作需要此标志
+}
+```
+
+**使用场景**:
+- Indexer 升级后数据格式变化
+- 数据不一致需要重新同步
+- 测试环境重置
+
+**操作示例**:
+```bash
+# 清空所有数据并重新同步
+bazooka --clear_db=true --clear_redis=true --clear_kafka_topics=true --force=true
+```
 
 ---
 

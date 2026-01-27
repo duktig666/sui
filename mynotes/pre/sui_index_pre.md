@@ -5,16 +5,13 @@
 
 ---
 
-结合代码，详细分析dydx，哪些数据是On-chain Events，那些数据Off-chain Updates，结论补充道sui/mynotes/dex/analyst/dydx-indexer-analyst.md
-
----
-
-DYDX的数据流图不是很清晰，完善到文档 dydx-indexer-analyst.md
-
----
-
-DYDX On-chain Events和Off-chain Updates最终都会存储到psql吗？存储层的表和结构是如何设计的？ 完善到文档 dydx-indexer-analyst.md
-
+1. 结合代码，详细分析dydx，哪些数据是On-chain Events，那些数据Off-chain Updates，结论补充道sui/mynotes/dex/analyst/dydx-indexer-analyst.md 
+2. DYDX的数据流图不是很清晰，完善到文档 dydx-indexer-analyst.md 
+3. DYDX On-chain Events和Off-chain Updates最终都会存储到psql吗？存储层的表和结构是如何设计的？ 完善到文档 dydx-indexer-analyst.md 
+4. dydx-indexer-analyst.md 文档中 第6部分客户端连接方式梳理的api如果不全进行完善，每个api或ws标明下从什么存储中查询的。
+5. dydx的索引服务是统一启动一份，还是每个节点配套启动一份？ 完善到文档 dydx-indexer-analyst.md
+6. dydx区块回滚存储如何回滚？ 完善到文档 dydx-indexer-analyst.md
+7. 第13部分，index专用全节点和普通节点什么区别？如何辨别
 
 
 # Sui Indexer
@@ -30,6 +27,10 @@ DEX链上部分如何将DEX需要的历史和实时数据发送给链下，是�
 结论最后输出到 sui/mynotes/dex/analyst/dex-indexer-analyst.md
 
 ---
+
+dydx-indexer-analyst.md 更新了大量的内容，结合dydx-indexer-analyst.md分析，并优化dex-indexer-analyst.md的设计
+
+--- 
 
 一些问题：
 1. FastPath Listener 如何将数据存储到链下 
