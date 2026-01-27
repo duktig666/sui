@@ -1,0 +1,35 @@
+# DYDX Indexer
+详细分析DYDX的Index机制。包括如何将DEX的订单簿、k线数据、订单数据、仓位数据等数据索引到链下？如何保持高性能？客户端应该如何进行连接，是连接的节点还是索引服务，总结出数据流。
+可以参看 dydx-v4-chain/mynotes下和dydx-v4-chain/notes的部分资料
+结论最后输出到 sui/mynotes/dex/analyst/dydx-indexer-analyst.md
+
+---
+
+结合代码，详细分析dydx，哪些数据是On-chain Events，那些数据Off-chain Updates，结论补充道sui/mynotes/dex/analyst/dydx-indexer-analyst.md
+
+---
+
+DYDX的数据流图不是很清晰，完善到文档 dydx-indexer-analyst.md
+
+---
+
+DYDX On-chain Events和Off-chain Updates最终都会存储到psql吗？存储层的表和结构是如何设计的？ 完善到文档 dydx-indexer-analyst.md
+
+
+
+# Sui Indexer
+sui-indexer-alt 可以将链上数据按照Checkpoint维度索引到链下（机制参看 sui/mynotes/sui/analysis/sui_indexer_data_flow.md）。
+dydx的indexer机制可以作为参考，参看文件 sui/mynotes/dex/analyst/dydx-indexer-analyst.md
+
+Checkpoint是秒级约3s，对于高性能DEX来说，需要很多场景的数据延迟太高，比如说订单簿、k线数据、订单数据、仓位数据等等。
+DEX链上部分如何将DEX需要的历史和实时数据发送给链下，是否要使用sui-indexer-alt的方式？
+链下索引的数据库使用什么比较合适，要支持链上数据的高频写入，数据流支持亿级别，并支持高频查询？
+考虑进行架构和方案设计
+
+备注： dex基于sui开发，回答问题和设计方案，多倾向于sui
+结论最后输出到 sui/mynotes/dex/analyst/dex-indexer-analyst.md
+
+---
+
+一些问题：
+1. FastPath Listener 如何将数据存储到链下 
