@@ -36,3 +36,8 @@ dydx-indexer-analyst.md 更新了大量的内容，结合dydx-indexer-analyst.md
 1. FastPath Listener 如何将数据存储到链下 
 2. dex-indexer-analyst.md分析中 k线数据从psql替换为TimescaleDB，历史存储从psql替换为ClickHouse 有多大提升？如何还使用 psql进行分析利弊
 3. 如果复用 sui-indexer-alt 服务，它用的什么存储？如果替换存储工作量评估，给出建议是否还要替换存储 完善到文档 dex-storage-vs-analysis.md
+4. 链上层没有move合约，而是自定义的DEX引擎，dex-indexer-analyst.md 修改完善相关部分和架构部分等。 
+---
+
+详细分析sui-indexer-alt，并将结论输出到sui/mynotes/dex/analyst
+基于dex-indexer-analyst.md 画出一张完善的结构图，输出到 sui/mynotes/dex/analyst

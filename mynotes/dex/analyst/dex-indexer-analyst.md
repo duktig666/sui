@@ -74,8 +74,8 @@ DYDX 采用**双通道数据流**:
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │                          链上层 (On-chain)                            │   │
 │  │  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐         │   │
-│  │  │ DEX 合约     │     │ 订单匹配     │     │ 事件发射     │         │   │
-│  │  │ (Move)      │────▶│ (链上执行)   │────▶│ (Events)     │         │   │
+│  │  │ DEX 引擎     │     │ 订单匹配     │     │ 事件发射     │         │   │
+│  │  │ (Native)    │────▶│ (引擎执行)   │────▶│ (Events)     │         │   │
 │  │  └──────────────┘     └──────────────┘     └──────────────┘         │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │                    │                               │                         │
@@ -209,16 +209,15 @@ Redis Stream
 // FastPath Listener 核心逻辑
 pub struct FastPathListener {
     sui_client: SuiClient,
-    dex_package_id: ObjectID,
+    dex_engine_id: ObjectID,
     redis: RedisConnection,
 }
 
 impl FastPathListener {
     pub async fn start(&self) -> Result<()> {
-        // 订阅 DEX Package 的交易
-        let filter = TransactionFilter::MoveModule {
-            package: self.dex_package_id,
-            module: None,
+        // 订阅 DEX 引擎的交易
+        let filter = TransactionFilter::DexEngine {
+            engine_id: self.dex_engine_id,
         };
 
         let mut subscription = self.sui_client
@@ -1135,80 +1134,84 @@ async fn batch_update_orderbook(
 
 ---
 
-## 11. 代码级别详细分析: Move Events vs Off-chain Updates
+## 11. 代码级别详细分析: DEX Engine Events vs Off-chain Updates
 
 > 参考 DYDX Indexer 的双通道数据流设计，定义 Sui DEX 的链上事件与链下更新机制。
 
-### 11.1 Move Events (链上事件)
+### 11.1 DEX Engine Events (链上事件)
 
-Move Events 通过 Sui 合约的 `event::emit()` 发射，被打包进 Checkpoint，由 Checkpoint Processor 批量处理后写入持久化存储。
+DEX Engine Events 由自定义 DEX 引擎在订单匹配、仓位更新等操作时发射，仍通过 Sui Events 机制被打包进 Checkpoint，由 Checkpoint Processor 批量处理后写入持久化存储。与传统 Move 智能合约不同，DEX 引擎直接内置于链上执行层，提供更高的性能和更低的延迟。
 
 #### 事件类型定义
 
-| 事件类型 | 触发场景 | Move 模块 | 存储目标 |
-|---------|---------|----------|---------|
-| **OrderPlaced** | 有状态订单放置 (长期/条件订单) | `dex::orderbook` | TimescaleDB (orders) |
-| **OrderMatched** | 订单成交 | `dex::matching` | TimescaleDB (fills, orders) |
-| **OrderCancelled** | 订单取消 | `dex::orderbook` | TimescaleDB (orders) |
-| **PositionUpdated** | 仓位变化 | `dex::position` | TimescaleDB (perpetual_positions) |
-| **FundingRateUpdated** | 资金费率计算 | `dex::funding` | TimescaleDB (funding_rates) |
-| **LiquidationExecuted** | 清算执行 | `dex::liquidation` | TimescaleDB (fills) + ClickHouse |
-| **MarketCreated** | 市场创建 | `dex::market` | TimescaleDB (markets) |
-| **TransferExecuted** | 转账事件 | `dex::transfer` | TimescaleDB (transfers) |
+| 事件类型 | 触发场景 | DEX 引擎模块 | 存储目标 |
+|---------|---------|-------------|---------|
+| **OrderPlaced** | 有状态订单放置 (长期/条件订单) | `engine::orderbook` | TimescaleDB (orders) |
+| **OrderMatched** | 订单成交 | `engine::matching` | TimescaleDB (fills, orders) |
+| **OrderCancelled** | 订单取消 | `engine::orderbook` | TimescaleDB (orders) |
+| **PositionUpdated** | 仓位变化 | `engine::position` | TimescaleDB (perpetual_positions) |
+| **FundingRateUpdated** | 资金费率计算 | `engine::funding` | TimescaleDB (funding_rates) |
+| **LiquidationExecuted** | 清算执行 | `engine::liquidation` | TimescaleDB (fills) + ClickHouse |
+| **MarketCreated** | 市场创建 | `engine::market` | TimescaleDB (markets) |
+| **TransferExecuted** | 转账事件 | `engine::transfer` | TimescaleDB (transfers) |
 
-#### Move 事件结构示例
+#### DEX 引擎事件结构示例
 
-```move
-// dex::events 模块
-module dex::events {
-    use sui::event;
+```rust
+// dex_engine/events.rs
+// 事件通过 Sui Events 机制发射，被 Checkpoint 收集
 
-    /// 订单成交事件
-    public struct OrderMatchedEvent has copy, drop {
-        market_id: ID,
-        maker_order_id: ID,
-        taker_order_id: ID,
-        maker_address: address,
-        taker_address: address,
-        side: u8,           // 0: Buy, 1: Sell (Taker side)
-        price: u64,         // 价格 (subticks)
-        quantity: u64,      // 数量 (quantums)
-        maker_fee: u64,
-        taker_fee: u64,
-        timestamp: u64,
-    }
+use serde::{Serialize, Deserialize};
+use sui_types::{ObjectID, Address};
 
-    /// 仓位更新事件
-    public struct PositionUpdatedEvent has copy, drop {
-        owner: address,
-        market_id: ID,
-        side: u8,           // 0: Long, 1: Short
-        size: u64,          // 仓位大小
-        entry_price: u64,   // 入场价格
-        margin: u64,        // 保证金
-        unrealized_pnl: i64,
-        checkpoint_sequence: u64,
-    }
+/// 订单成交事件
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OrderMatchedEvent {
+    pub market_id: ObjectID,
+    pub maker_order_id: ObjectID,
+    pub taker_order_id: ObjectID,
+    pub maker_address: Address,
+    pub taker_address: Address,
+    pub side: Side,           // Buy / Sell (Taker side)
+    pub price: u64,           // 价格 (subticks)
+    pub quantity: u64,        // 数量 (quantums)
+    pub maker_fee: u64,
+    pub taker_fee: u64,
+    pub timestamp: u64,
+}
 
-    /// 资金费率事件
-    public struct FundingRateEvent has copy, drop {
-        market_id: ID,
-        rate: i64,          // 资金费率 (有符号)
-        mark_price: u64,
-        index_price: u64,
-        timestamp: u64,
-    }
+/// 仓位更新事件
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PositionUpdatedEvent {
+    pub owner: Address,
+    pub market_id: ObjectID,
+    pub side: Side,           // Long / Short
+    pub size: u64,            // 仓位大小
+    pub entry_price: u64,     // 入场价格
+    pub margin: u64,          // 保证金
+    pub unrealized_pnl: i64,
+    pub checkpoint_sequence: u64,
+}
+
+/// 资金费率事件
+#[derive(Clone, Serialize, Deserialize)]
+pub struct FundingRateEvent {
+    pub market_id: ObjectID,
+    pub rate: i64,            // 资金费率 (有符号)
+    pub mark_price: u64,
+    pub index_price: u64,
+    pub timestamp: u64,
 }
 ```
 
 #### 事件数据流
 
 ```
-Sui 合约 (Move)
+DEX Engine (Native)
     │
-    │ event::emit(OrderMatchedEvent {...})
+    │ engine.emit_event(OrderMatchedEvent {...})
     ▼
-Transaction Effects
+Transaction Effects (Sui Events)
     │
     │ 包含在 Checkpoint 中
     ▼
@@ -1311,8 +1314,8 @@ Redis
 
 ### 11.3 双通道对比总结
 
-| 维度 | Move Events (链上事件) | Off-chain Updates (链下更新) |
-|-----|----------------------|---------------------------|
+| 维度 | DEX Engine Events (链上事件) | Off-chain Updates (链下更新) |
+|-----|----------------------------|---------------------------|
 | **数据类型** | 8+ 种事件类型 | 4 种更新类型 |
 | **触发时机** | 交易执行时发射事件 | RPC 订阅实时获取 |
 | **发送方式** | Checkpoint 批量处理 | 实时单条处理 |
@@ -1325,11 +1328,11 @@ Redis
 ### 11.4 设计哲学
 
 1. **最终一致性 vs 实时性**:
-   - Move Events 保证最终一致性，但延迟较高 (Checkpoint 时间)
+   - DEX Engine Events 保证最终一致性，但延迟较高 (Checkpoint 时间)
    - Off-chain Updates 提供实时响应，但可能因 Checkpoint 确认而需要修正
 
 2. **数据分层**:
-   - 持久化数据 (仓位、成交记录、历史订单) → Move Events → TimescaleDB/ClickHouse
+   - 持久化数据 (仓位、成交记录、历史订单) → DEX Engine Events → TimescaleDB/ClickHouse
    - 实时状态 (订单簿、活跃订单) → Off-chain Updates → Redis
 
 3. **乐观更新策略**:
@@ -1352,7 +1355,7 @@ Redis
 
 **关键发现**:
 - **FastPath (Off-chain Updates) 只写入 Redis，不写入 TimescaleDB**
-- **Checkpoint (Move Events) 写入 TimescaleDB/ClickHouse，同时更新部分 Redis 缓存用于数据一致性**
+- **Checkpoint (DEX Engine Events) 写入 TimescaleDB/ClickHouse，同时更新部分 Redis 缓存用于数据一致性**
 - TimescaleDB 中的数据是 Checkpoint 确认后的最终状态，Redis 中的数据是乐观的实时状态
 
 ### 12.2 数据流存储路径详解
@@ -2103,7 +2106,7 @@ recovery-tool --resync --from 1000000 --to 1001000
 
 ## 16. 后续工作
 
-1. **Move 合约事件设计**: 实现上述定义的 Move 事件结构
+1. **DEX 引擎事件设计**: 实现上述定义的 DEX Engine 事件结构
 2. **FastPath 实现**: 开发基于 Sui RPC 订阅的实时数据监听器
 3. **sui-indexer-alt 扩展**: 实现自定义 Pipeline Handler
 4. **数据库 Schema 实现**: 根据第12节设计创建表结构
@@ -2135,7 +2138,7 @@ recovery-tool --resync --from 1000000 --to 1001000
 | 5. 高性能设计 | 8. 高性能优化策略 | 性能优化 |
 | 6. 客户端连接方式 | 6. API 服务设计 + 7. 客户端连接方式 | API 设计 |
 | 7. 完整数据流图 | 2. 整体架构设计 | 数据流图 |
-| 11. 代码级别详细分析 | 11. 代码级别详细分析 | **新增** - Move Events vs Off-chain Updates |
+| 11. 代码级别详细分析 | 11. 代码级别详细分析 | **新增** - DEX Engine Events vs Off-chain Updates |
 | 12. 存储层详细分析 | 12. 存储层详细分析 | **新增** - 存储职责分离 |
 | 13. 索引服务部署架构 | 13. 部署架构分析 | **新增** - 部署架构 |
 | - | 14. Checkpoint 回滚策略 | **新增** - Sui 特有的 Checkpoint 处理 |
