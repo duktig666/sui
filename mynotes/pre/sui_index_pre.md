@@ -49,3 +49,6 @@ dydx-indexer-analyst.md 更新了大量的内容，结合dydx-indexer-analyst.md
 
 ---
 1. dex-indexer-structure.md 中FastPath的存储路径和sui的FastPath机制没有关系吧
+
+dex-indexer-analyst.md方案中TimescaleDB和ClickHouse该用psql，设计新的方案，输出到dex-indexer-analyst-psql-v2.md。dex-indexer-analyst.md保持不变。
+dex-indexer-structure.md中TimescaleDB和ClickHouse该用psql，设计新的架构图，输出到dex-indexer-structure-psql-v2.md。dex-indexer-structure.md保持不变。
