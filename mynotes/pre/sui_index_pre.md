@@ -41,3 +41,11 @@ dydx-indexer-analyst.md 更新了大量的内容，结合dydx-indexer-analyst.md
 
 详细分析sui-indexer-alt，并将结论输出到sui/mynotes/dex/analyst
 基于dex-indexer-analyst.md 画出一张完善的结构图，输出到 sui/mynotes/dex/analyst
+
+1. 架构图中客户端层连接的节点应该是Full Node，Index Full Node向Full Node同步数据，并发出索引事件
+2. Move Events 改为 OnChainUpdate
+3. 架构图中缺少对 数据具体存储那个存储 不清晰
+完善架构图 dex-indexer-structure.md
+
+---
+1. dex-indexer-structure.md 中FastPath的存储路径和sui的FastPath机制没有关系吧
