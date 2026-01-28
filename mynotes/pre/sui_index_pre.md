@@ -14,6 +14,13 @@
 7. 第13部分，index专用全节点和普通节点什么区别？如何辨别
 
 
+# sui-indexer-alt
+1. sui-indexer-alt 是链下的单独服务吗？部署架构是怎样的？
+2. sui-indexer-alt 是如何将数据写入的？
+   完善到 sui-indexer-alt-analyst.md
+---
+
+
 # Sui Indexer
 sui-indexer-alt 可以将链上数据按照Checkpoint维度索引到链下（机制参看 sui/mynotes/sui/analysis/sui_indexer_data_flow.md）。
 dydx的indexer机制可以作为参考，参看文件 sui/mynotes/dex/analyst/dydx-indexer-analyst.md
@@ -48,7 +55,16 @@ dydx-indexer-analyst.md 更新了大量的内容，结合dydx-indexer-analyst.md
 完善架构图 dex-indexer-structure.md
 
 ---
-1. dex-indexer-structure.md 中FastPath的存储路径和sui的FastPath机制没有关系吧
+dex-indexer-structure.md 中FastPath的存储路径和sui的FastPath机制没有关系吧
 
 dex-indexer-analyst.md方案中TimescaleDB和ClickHouse该用psql，设计新的方案，输出到dex-indexer-analyst-psql-v2.md。dex-indexer-analyst.md保持不变。
 dex-indexer-structure.md中TimescaleDB和ClickHouse该用psql，设计新的架构图，输出到dex-indexer-structure-psql-v2.md。dex-indexer-structure.md保持不变。
+
+---
+
+dex-indexer-structure-psql-v2.md 的双通道设计似乎可行，但是太过复杂。实时通道用途: 订单簿实时更新、活跃订单状态，数据缓存在Redis，不存储db。
+先实现批量通道 (Checkpoint)，是否也可以完整实现功能，只是延迟较大。进行分析
+---
+第一阶段先实现Checkpoint-Only架构，主要进行功能性验证。
+第二阶段实现双通道方案。
+写出v3版本的方案，并输出到新的文件。

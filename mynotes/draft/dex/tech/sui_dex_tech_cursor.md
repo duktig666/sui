@@ -4,7 +4,7 @@
 > **日期**: 2025-01-XX  
 > **状态**: Draft  
 > **设计方法**: Architect-driven  
-> **参考**: [`mynotes/plan/dex_use_sui_plan_cursor.md`](../../plan/dex_use_sui_plan_cursor.md)
+> **参考**: [`mynotes/plan/dex_use_sui_plan_cursor.md`](../../../plan/dex_use_sui_plan_cursor.md)
 
 ---
 

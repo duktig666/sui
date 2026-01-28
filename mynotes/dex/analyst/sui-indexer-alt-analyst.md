@@ -13,6 +13,91 @@
 - **存储灵活**: 主要使用 PostgreSQL，部分组件支持 RocksDB（consistent store）
 - **性能优化**: 支持乱序处理和批量提交，提高吞吐量
 
+### 1.3 部署架构
+
+`sui-indexer-alt` 是**完全链下的独立服务**，不参与共识，不存储完整区块链状态，仅从 Checkpoint 数据中提取和索引信息。
+
+#### 1.3.1 部署架构图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Sui Network                                         │
+│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐                    │
+│  │  Validator 1  │    │  Validator 2  │    │  Validator N  │   ← 共识层         │
+│  └───────┬───────┘    └───────┬───────┘    └───────┬───────┘                    │
+│          └──────────────────┬─┴──────────────────┬─┘                            │
+│                             ▼                    ▼                               │
+│                    ┌─────────────────┐    ┌─────────────────┐                   │
+│                    │   Full Node 1   │    │   Full Node N   │  ← 全节点同步     │
+│                    └────────┬────────┘    └────────┬────────┘                   │
+│                             │                      │                             │
+│                             ▼                      ▼                             │
+│                    ┌─────────────────────────────────────┐                      │
+│                    │        Checkpoint Store             │ ← S3/GCS/本地        │
+│                    │  (https://checkpoints.mainnet.sui.io) │                    │
+│                    └──────────────────┬──────────────────┘                      │
+└───────────────────────────────────────┼─────────────────────────────────────────┘
+                                        │
+════════════════════════════════════════╪═══════════════════════════════════════════
+                                        │  链下（Off-chain）
+                                        ▼
+                    ┌──────────────────────────────────────┐
+                    │         sui-indexer-alt              │  ← 索引器服务
+                    │  ┌────────────────────────────────┐  │
+                    │  │     Ingestion Service          │  │
+                    │  └────────────────────────────────┘  │
+                    │  ┌────────────────────────────────┐  │
+                    │  │     Pipeline Processing        │  │
+                    │  └────────────────────────────────┘  │
+                    └──────────────────┬───────────────────┘
+                                       │
+                    ┌──────────────────┼───────────────────┐
+                    ▼                  ▼                   ▼
+          ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐
+          │   PostgreSQL    │  │    RocksDB      │  │  Prometheus  │
+          │  (主存储)       │  │ (Consistent     │  │  (指标)      │
+          │                 │  │   Store)        │  │              │
+          └────────┬────────┘  └────────┬────────┘  └──────────────┘
+                   │                    │
+                   ▼                    ▼
+          ┌─────────────────┐  ┌─────────────────┐
+          │  GraphQL RPC    │  │   gRPC API      │  ← 对外服务
+          │  JSON-RPC       │  │ (Consistent)    │
+          └─────────────────┘  └─────────────────┘
+```
+
+#### 1.3.2 数据源选项
+
+> 源码: [`crates/sui-indexer-alt/src/args.rs`](../../crates/sui-indexer-alt/src/args.rs)
+
+索引器支持四种 Checkpoint 数据来源，只需配置其中一种：
+
+| 数据源 | 命令行参数 | 使用场景 | 延迟 |
+|--------|------------|----------|------|
+| 远程存储 | `--remote-store-url` | 生产环境，从 S3/GCS 读取 | 秒级 |
+| 本地文件 | `--local-ingestion-path` | 开发测试，本地 checkpoint 文件 | 无延迟 |
+| RPC 接口 | `--rpc-api-url` | 从全节点 RPC 获取 | 秒级 |
+| gRPC 流式 | `--streaming-url` | 实时同步，最低延迟 | 亚秒级 |
+
+#### 1.3.3 典型部署方式
+
+**开发/测试环境（单机）**:
+```
+本地 Checkpoint 文件 → Indexer → PostgreSQL → RPC 服务
+```
+
+**生产环境（分离部署）**:
+```
+Sui 全节点 → Checkpoint Store (S3) → Indexer 集群 → PostgreSQL 主从 → RPC 集群
+                                         ↓
+                                   Prometheus/Grafana
+```
+
+**低延迟场景**:
+```
+Sui 全节点 ──gRPC Streaming──→ Indexer → PostgreSQL → RPC 服务
+```
+
 ## 2. 项目结构
 
 ### 2.1 核心 Crate 依赖关系
@@ -211,6 +296,256 @@ pub trait Processor: Send + Sync {
 
     async fn process(&self, checkpoint: &Arc<Checkpoint>) -> Result<Vec<Self::Value>>;
 }
+```
+
+### 3.5 数据写入机制
+
+> 源码: [`crates/sui-indexer-alt-framework/src/pipeline/concurrent/committer.rs`](../../crates/sui-indexer-alt-framework/src/pipeline/concurrent/committer.rs)
+
+#### 3.5.1 写入流程
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                       Concurrent Pipeline 完整写入流程                           │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  Ingestion ──► Processor ──► Collector ──► Committer ──► CommitWatermark        │
+│      │            │              │             │               │                │
+│      │            │              │             │               └──► DB (watermark)
+│      │            │              │             └──► DB (batch data)             │
+│      │            │              │                                               │
+│      │            │              ├─ pending: BTreeMap<checkpoint, data>         │
+│      │            │              ├─ poll.tick() 每 500ms 检查                    │
+│      │            │              └─ pending_rows >= 50 立即触发                  │
+│      │            │                                                              │
+│      │            └─ FANOUT 并发 (默认 1)                                        │
+│      │                                                                           │
+│      └─ Broadcaster 广播到所有 Pipeline                                         │
+│                                                                                  │
+│  背压传播链:                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │ pending_rows >= 5000 → Collector 停止接收 → Processor 阻塞 → Ingestion 阻塞 │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**各阶段职责**:
+
+| 阶段 | 职责 | 关键配置 |
+|------|------|----------|
+| **Processor** | 从 Checkpoint 提取数据，转换为 `Value` | `FANOUT` |
+| **Collector** | 按 checkpoint 排序，组装批次 | `MIN_EAGER_ROWS`, `MAX_PENDING_ROWS` |
+| **Committer** | 并发写入数据库，失败重试 | `write_concurrency` |
+| **CommitWatermark** | 更新 watermark，通知 pruner | `watermark_interval_ms` |
+
+#### 3.5.2 批量写入策略
+
+> 源码: [`crates/sui-indexer-alt-framework/src/pipeline/concurrent/mod.rs:63-69`](../../crates/sui-indexer-alt-framework/src/pipeline/concurrent/mod.rs)
+
+```rust
+pub trait Handler: Processor {
+    const MIN_EAGER_ROWS: usize = 50;      // 最少积攒多少行才提交
+    const MAX_PENDING_ROWS: usize = 5000;  // 最大待处理行数（触发背压）
+    // ...
+}
+```
+
+- **MIN_EAGER_ROWS**: 当收集够这么多行时，立即提交（不等待更多数据）
+- **MAX_PENDING_ROWS**: 达到此阈值时，暂停上游处理（背压）
+
+#### 3.5.2.1 Collector 详细机制
+
+> 源码: [`crates/sui-indexer-alt-framework/src/pipeline/concurrent/collector.rs:58-72`](../../crates/sui-indexer-alt-framework/src/pipeline/concurrent/collector.rs)
+
+**批次触发条件**（按优先级）:
+
+```rust
+// collector.rs:211-213
+if pending_rows >= H::MIN_EAGER_ROWS {
+    poll.reset_immediately()  // 立即触发批次收集
+}
+```
+
+| 触发条件 | 代码位置 | 说明 |
+|----------|----------|------|
+| `pending_rows >= MIN_EAGER_ROWS` | :211-213 | 数据量足够，立即触发 |
+| `poll.tick()` 定时触发 | :102 | 每 `collect_interval_ms` 定时检查 |
+| `BatchStatus::Ready` | :136-139 | Handler 返回批次已满 |
+| `pending_rows >= MAX_PENDING_ROWS` | :184 | 暂停接收，形成背压 |
+
+**数据结构与排序**:
+
+```rust
+// 使用 BTreeMap 按 checkpoint 序号排序存储
+let mut pending: BTreeMap<u64, PendingCheckpoint<H>> = BTreeMap::new();
+```
+
+**过期数据跳过**:
+
+> 源码: [`collector.rs:186-193`](../../crates/sui-indexer-alt-framework/src/pipeline/concurrent/collector.rs)
+
+```rust
+// 跳过已过期的 checkpoint（低于 reader_lo）
+let reader_lo = main_reader_lo.wait().await.load(Ordering::Relaxed);
+if indexed.checkpoint() < reader_lo {
+    indexed.values.clear();  // 清空数据，但保留 watermark 用于推进
+    metrics.total_collector_skipped_checkpoints.inc();
+}
+```
+
+#### 3.5.3 并发写入控制
+
+> 源码: [`crates/sui-indexer-alt-framework/src/pipeline/concurrent/committer.rs:30-35`](../../crates/sui-indexer-alt-framework/src/pipeline/concurrent/committer.rs)
+
+```rust
+pub struct CommitterConfig {
+    pub write_concurrency: usize,     // 默认 5，并发写入数
+    pub collect_interval_ms: u64,     // 默认 500ms，收集间隔
+    pub watermark_interval_ms: u64,   // 默认 500ms，水位更新间隔
+}
+```
+
+Committer 使用信号量控制并发写入数量：
+```rust
+// committer.rs:89-91
+let write_concurrency = config.write_concurrency.try_into().unwrap_or(usize::MAX);
+let write_limiter = Arc::new(Semaphore::new(write_concurrency));
+```
+
+#### 3.5.4 重试机制
+
+> 源码: [`crates/sui-indexer-alt-framework/src/pipeline/concurrent/committer.rs:58-63`](../../crates/sui-indexer-alt-framework/src/pipeline/concurrent/committer.rs)
+
+采用**指数退避重试**策略：
+
+```rust
+const INITIAL_RETRY_INTERVAL: Duration = Duration::from_millis(100);
+const MAX_RETRY_INTERVAL: Duration = Duration::from_secs(1);
+
+// 使用 backoff crate 实现
+backoff::future::retry(
+    backoff::ExponentialBackoff {
+        initial_interval: INITIAL_RETRY_INTERVAL,
+        max_interval: MAX_RETRY_INTERVAL,
+        max_elapsed_time: None,  // 永不放弃
+        ..Default::default()
+    },
+    || async {
+        handler.commit(&batch, conn).await
+    }
+)
+```
+
+**重试特点**:
+- 初始间隔: 100ms
+- 最大间隔: 1s
+- 无最大重试次数限制（永不放弃）
+- 适用于瞬时数据库故障
+
+#### 3.5.5 幂等写入保证
+
+> 源码: [`crates/sui-indexer-alt/src/handlers/kv_transactions.rs:76-80`](../../crates/sui-indexer-alt/src/handlers/kv_transactions.rs)
+
+使用 Diesel ORM 的 `on_conflict_do_nothing` 保证幂等性：
+
+```rust
+async fn commit<'a>(&self, batch: &Self::Batch, conn: &mut Connection<'a>) -> Result<usize> {
+    Ok(diesel::insert_into(kv_transactions::table)
+        .values(batch)
+        .on_conflict_do_nothing()   // 冲突时忽略，保证幂等
+        .execute(conn)
+        .await?)
+}
+```
+
+**幂等性意义**:
+- 索引器重启后可安全重新处理同一 checkpoint
+- 多个索引器实例可并行写入同一数据库
+- 无需担心重复数据
+
+#### 3.5.6 Diesel ORM 与 diesel-async
+
+> 源码: [`crates/sui-indexer-alt-framework/src/postgres/mod.rs`](../../crates/sui-indexer-alt-framework/src/postgres/mod.rs)
+
+使用 `diesel-async` 实现异步数据库操作：
+
+```rust
+// 连接池配置
+pub type Db = Pool<AsyncPgConnection>;
+
+// 连接获取
+pub async fn connection<'a>(&'a self) -> Result<Object<'a, AsyncPgConnection>> {
+    self.db.get().await.map_err(|e| anyhow!("Failed to get connection: {}", e))
+}
+
+// 自动迁移
+pub async fn run_migrations(&self) -> Result<()> {
+    conn.run_pending_migrations(MIGRATIONS)
+        .await
+        .map_err(|e| anyhow!("Migration failed: {}", e))?;
+    Ok(())
+}
+```
+
+**写入特点**:
+- 完全异步，不阻塞线程
+- 使用连接池（deadpool）管理数据库连接
+- 自动应用 schema 迁移
+
+#### 3.5.7 并发 vs 顺序 Pipeline 写入对比
+
+> 源码: [`crates/sui-indexer-alt-framework/src/pipeline/sequential/committer.rs:22-37`](../../crates/sui-indexer-alt-framework/src/pipeline/sequential/committer.rs)
+
+| 特性 | 并发 Pipeline | 顺序 Pipeline |
+|------|--------------|---------------|
+| **写入顺序** | 乱序写入，按批次提交 | 严格按 checkpoint 顺序 |
+| **事务边界** | 每批独立事务 | 写入 + watermark 同一事务 |
+| **幂等保证** | `on_conflict_do_nothing` | 按顺序避免重复写入 |
+| **checkpoint_lag** | 无 | 可配置滞后（等待确认） |
+| **适用场景** | append-only KV 存储 | 汇总表、状态维护 |
+
+**顺序 Pipeline 事务写入**:
+
+```rust
+// sequential/committer.rs:225-230
+store.transaction(|conn| {
+    async {
+        // Watermark 和数据在同一事务中更新，保证原子性
+        conn.set_committer_watermark(H::NAME, watermark).await?;
+        handler.commit(&batch, conn).await
+    }.scope_boxed()
+}).await;
+```
+
+**Watermark 更新差异**:
+- **并发 Pipeline**: Committer 写入成功后，通过 channel 异步发送 watermark 到 CommitWatermark task
+- **顺序 Pipeline**: Watermark 与数据写入在同一数据库事务中，保证原子性
+
+#### 3.5.8 性能调优建议
+
+| 参数 | 默认值 | 调优方向 | 建议 |
+|------|--------|----------|------|
+| `MIN_EAGER_ROWS` | 50 | 延迟 ↔ 吞吐 | 降低可减少延迟，升高可提升批量效率 |
+| `MAX_PENDING_ROWS` | 5000 | 内存 ↔ 缓冲 | 根据内存容量调整，过大可能 OOM |
+| `write_concurrency` | 5 | 并发 ↔ 连接 | 应小于 DB 连接池大小 |
+| `collect_interval_ms` | 500 | 延迟 ↔ CPU | 降低可减少批次延迟 |
+| `watermark_interval_ms` | 500 | 一致性 ↔ IO | 降低可更频繁更新进度 |
+
+**吞吐优化场景**（追赶历史数据）:
+```toml
+[committer]
+write_concurrency = 10
+collect_interval_ms = 100
+
+[pipeline.kv_transactions]
+# 覆盖默认配置
+```
+
+**低延迟场景**（实时同步）:
+```toml
+[committer]
+collect_interval_ms = 50
+watermark_interval_ms = 100
 ```
 
 ## 4. 数据 Schema
