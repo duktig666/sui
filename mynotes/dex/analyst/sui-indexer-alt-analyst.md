@@ -906,6 +906,298 @@ cargo run --bin sui-indexer-alt-graphql -- rpc \
 2. **Object 模型**: 理解对象的创建、修改、删除
 3. **Effects 解析**: 理解交易执行结果的结构
 
+### 12.4 事件系统限制：Rust 原生代码不能发出事件
+
+**结论**: 使用原生 Rust（不使用 Move）**不能**在 Sui 上发出事件并被索引。
+
+**原因分析**:
+
+1. **Sui 事件系统基于 Move**
+
+   > 源码: [`crates/sui-framework/packages/sui-framework/sources/event.move:42`](../../crates/sui-framework/packages/sui-framework/sources/event.move)
+
+   ```move
+   /// Emit a custom Move event, sending the data offchain.
+   public native fun emit<T: copy + drop>(event: T);
+   ```
+
+   - `sui::event::emit<T>()` 是 Move 的 native 函数
+   - 事件类型 `T` 必须是 Move 类型（具有 `copy + drop` ability）
+   - 事件数据是 BCS 序列化的 Move 结构体
+
+2. **Sui 链上执行环境是 Move VM**
+
+   - 所有链上智能合约必须用 Move 编写
+   - Rust 代码只能在**链下**运行（如 sui-indexer-alt、全节点）
+   - 无法用 Rust 编写链上逻辑或发出链上事件
+
+3. **事件数据结构证明**
+
+   > 源码: [`crates/sui-types/src/event.rs:106-113`](../../crates/sui-types/src/event.rs)
+
+   ```rust
+   pub struct Event {
+       pub package_id: ObjectID,         // 发出事件的 Move 包 ID
+       pub transaction_module: Identifier, // 发出事件的 Move 模块
+       pub sender: SuiAddress,
+       pub type_: StructTag,             // Move 类型标识
+       pub contents: Vec<u8>,            // BCS 序列化的 Move 数据
+   }
+   ```
+
+4. **索引器如何处理事件**
+
+   > 源码: [`crates/sui-indexer-alt/src/handlers/ev_emit_mod.rs:38-50`](../../crates/sui-indexer-alt/src/handlers/ev_emit_mod.rs)
+
+   ```rust
+   // 从 checkpoint 的交易中提取 Move 事件
+   for (i, tx) in transactions.iter().enumerate() {
+       values.extend(
+           tx.events
+               .iter()
+               .flat_map(|evs| &evs.data)
+               .map(|ev| StoredEvEmitMod {
+                   package: ev.package_id.to_vec(),    // Move 包 ID
+                   module: ev.transaction_module.to_string(), // Move 模块名
+                   // ...
+               }),
+       );
+   }
+   ```
+
+5. **Native 函数无法被 Rust 直接调用**
+
+   > 源码: [`sui-execution/latest/sui-move-natives/src/event.rs:43-54`](../../sui-execution/latest/sui-move-natives/src/event.rs)
+
+   ```rust
+   pub fn emit(
+       context: &mut NativeContext,  // 仅在 Move VM 内部存在
+       mut ty_args: Vec<Type>,       // Move 类型系统
+       mut args: VecDeque<Value>,    // Move 值表示
+   ) -> PartialVMResult<NativeResult> {
+       // ...
+       emit_impl(context, ty, event_value, None)
+   }
+   ```
+
+   **关键依赖分析**:
+
+   | 依赖项 | 说明 | 为何无法外部获取 |
+   |--------|------|------------------|
+   | `NativeContext` | Move VM 执行上下文 | 仅在 Move VM 执行交易时创建 |
+   | `ObjectRuntime` | Sui 对象运行时 | 仅在交易执行期间实例化 |
+   | `Type` | Move 类型表示 | 需要 Move 类型系统支持 |
+   | `Value` | Move 值表示 | 必须是 Move VM 内部值 |
+
+   > 源码: [`sui-execution/latest/sui-move-natives/src/event.rs:198-200`](../../sui-execution/latest/sui-move-natives/src/event.rs)
+
+   ```rust
+   // 获取 ObjectRuntime（仅在交易执行时存在）
+   let obj_runtime: &mut ObjectRuntime = get_extension_mut!(context)?;
+   // 事件存储在运行时状态中，交易完成后才持久化
+   obj_runtime.emit_event(*tag, event_value)?;
+   ```
+
+   **结论**: `sui::event::emit<T>()` 的 native 实现虽然是 Rust 代码，但它：
+   - 被设计为只能从 Move VM 内部调用
+   - 依赖 Move VM 的执行上下文和运行时
+   - 事件存储在运行时状态，需交易成功完成才会持久化
+   - **不存在任何公开 API 可以在 Move VM 外部创建这些依赖项**
+
+**DEX 开发影响**:
+
+| 需求 | 解决方案 |
+|------|----------|
+| 索引订单事件 | 必须在 Move 合约中 `emit` 事件 |
+| 索引成交事件 | 必须在 Move 合约中 `emit` 事件 |
+| 自定义索引数据 | 在 Move 合约中定义事件类型并发出 |
+| **原生 Rust DEX 引擎** | **见 12.5 节链下索引方案** |
+
+**示例 Move 事件定义**:
+
+```move
+module dex::events {
+    use sui::event;
+
+    /// 订单创建事件
+    public struct OrderCreated has copy, drop {
+        order_id: ID,
+        market_id: ID,
+        price: u64,
+        quantity: u64,
+        is_bid: bool,
+        owner: address,
+    }
+
+    /// 在订单创建时发出事件
+    public(package) fun emit_order_created(/* params */) {
+        event::emit(OrderCreated { /* fields */ });
+    }
+}
+```
+
+### 12.5 链下 Rust DEX 引擎的事件索引方案
+
+**场景**: 使用原生 Rust 开发链下 DEX 撮合引擎（类似 Hyperliquid/dYdX 架构），需要索引引擎产生的事件。
+
+**核心问题**: 链下 Rust 引擎的"事件"是应用层日志，不是区块链事件，sui-indexer-alt 无法直接索引。
+
+#### 方案对比
+
+| 方案 | 描述 | 优点 | 缺点 |
+|------|------|------|------|
+| **A. 自建索引** | DEX 引擎自己维护数据库 | 完全控制、低延迟 | 需自行保证一致性 |
+| **B. 链上事件桥接** | 结算时 Move 合约发出事件 | 可用 sui-indexer-alt | 仅结算数据上链 |
+| **C. 混合索引** | 链下数据 + 链上数据分别索引 | 完整性好 | 架构复杂 |
+| **D. 自定义 Pipeline** | 扩展 sui-indexer-alt-framework | 统一框架 | 需改造框架 |
+
+#### 方案 A：DEX 引擎自建索引（推荐）
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        链下 DEX 引擎 (Rust)                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐            │
+│  │  撮合引擎    │ ──► │  事件总线    │ ──► │  索引服务    │            │
+│  │  (Matching)  │     │  (EventBus)  │     │  (Indexer)   │            │
+│  └──────────────┘     └──────┬───────┘     └──────┬───────┘            │
+│                              │                    │                     │
+│                              ▼                    ▼                     │
+│                       ┌──────────────┐     ┌──────────────┐            │
+│                       │  WebSocket   │     │  PostgreSQL  │            │
+│                       │  (实时推送)  │     │  (持久化)    │            │
+│                       └──────────────┘     └──────────────┘            │
+└─────────────────────────────────────────────────────────────────────────┘
+                              │
+                              │ 结算交易
+                              ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          Sui 区块链                                      │
+│  ┌──────────────┐                        ┌──────────────┐               │
+│  │  结算合约    │ ───── Move Event ────► │  sui-indexer │               │
+│  │  (Settlement)│                        │  (链上数据)  │               │
+│  └──────────────┘                        └──────────────┘               │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**实现要点**:
+
+```rust
+// DEX 引擎内部事件定义
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OrderPlacedEvent {
+    pub order_id: u64,
+    pub market_id: u64,
+    pub price: u64,
+    pub quantity: u64,
+    pub side: Side,
+    pub timestamp: u64,
+}
+
+// 事件总线
+pub struct EventBus {
+    subscribers: Vec<mpsc::Sender<DexEvent>>,
+}
+
+impl EventBus {
+    pub fn publish(&self, event: DexEvent) {
+        for sub in &self.subscribers {
+            let _ = sub.try_send(event.clone());
+        }
+    }
+}
+
+// 索引服务订阅事件
+pub struct IndexerService {
+    db: PgPool,
+    event_rx: mpsc::Receiver<DexEvent>,
+}
+
+impl IndexerService {
+    pub async fn run(&mut self) {
+        while let Some(event) = self.event_rx.recv().await {
+            self.index_event(event).await;
+        }
+    }
+}
+```
+
+#### 方案 B：链上事件桥接
+
+**适用场景**: 只需索引结算相关数据（成交、资金变动）
+
+```move
+module dex::settlement {
+    use sui::event;
+
+    /// 结算事件（由链下引擎触发的链上结算）
+    public struct SettlementExecuted has copy, drop {
+        batch_id: u64,
+        market_id: ID,
+        fills: vector<Fill>,
+        timestamp: u64,
+    }
+
+    /// 执行结算时发出事件
+    public fun execute_settlement(/* params */) {
+        // ... 结算逻辑 ...
+        event::emit(SettlementExecuted { /* fields */ });
+    }
+}
+```
+
+**数据分层**:
+| 数据类型 | 存储位置 | 索引方式 |
+|----------|----------|----------|
+| 订单簿状态 | 链下引擎内存 | 自建索引 |
+| 订单历史 | 链下 PostgreSQL | 自建索引 |
+| 成交记录 | 链上 Move Event | sui-indexer-alt |
+| 余额变动 | 链上 Object Change | sui-indexer-alt |
+
+#### 方案 C：混合索引架构
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           统一查询层 (GraphQL)                             │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌─────────────────────────┐          ┌─────────────────────────┐        │
+│  │   链下数据 Resolver     │          │   链上数据 Resolver     │        │
+│  └────────────┬────────────┘          └────────────┬────────────┘        │
+│               │                                    │                      │
+│               ▼                                    ▼                      │
+│  ┌─────────────────────────┐          ┌─────────────────────────┐        │
+│  │   DEX 引擎数据库        │          │   sui-indexer-alt DB    │        │
+│  │   (订单、撮合、K线)     │          │   (结算、余额、事件)    │        │
+│  └─────────────────────────┘          └─────────────────────────┘        │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 推荐架构
+
+对于**高性能链下 DEX 引擎**，推荐采用**方案 A + B 组合**:
+
+1. **链下引擎自建索引**（实时性要求高的数据）:
+   - 订单簿实时状态
+   - 订单生命周期
+   - 撮合事件流
+   - K 线聚合
+
+2. **链上 Move 事件 + sui-indexer-alt**（需要链上可验证的数据）:
+   - 结算批次
+   - 资金划转
+   - 清算记录
+
+3. **统一 API 层**:
+   - 合并链下/链上数据
+   - 提供一致的查询接口
+
+**关键设计原则**:
+- **链下数据**：低延迟、高吞吐，引擎自己负责一致性
+- **链上数据**：可验证、最终一致，使用 sui-indexer-alt
+- **不要**试图把所有数据都放链上发事件（性能瓶颈）
+
 ## 13. 总结
 
 `sui-indexer-alt` 是一个成熟的区块链索引器实现，其核心特点：

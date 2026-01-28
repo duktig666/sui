@@ -68,3 +68,20 @@ dex-indexer-structure-psql-v2.md 的双通道设计似乎可行，但是太过�
 第一阶段先实现Checkpoint-Only架构，主要进行功能性验证。
 第二阶段实现双通道方案。
 写出v3版本的方案，并输出到新的文件。
+---
+dex-ui/notes/hyperliquid/http 文件夹下是hyperliquid的api。
+结合hyperliquid的api 完善 dex-indexer-structure-v3.md的架构设计。
+最终暴露出去的api和hyperliquid的类似，主要是数据模型和端点。 架构文档可以没有这些。
+再写一份技术方案，输出到 sui/mynotes/dex/tech/dex-indexer-tech.md。
+在传统的技术方案基础上，重点包括 事件的定义，api的端点，数据模型，存储及表的定义 等等，可以再进行头脑风暴和发散，还要包括哪些重点内容，帮助写出更完善的技术方案。
+技术方案中，还要扩展 sui-indexer-alt 的功能，如何解析dex定义的事件等。
+先写计划，输出到 sui/mynotes/plan/dex-indexer-plan.md，计划评审后在写技术方案。
+---
+第一阶段的api可以考虑先使用sui-indexer的jsonrpc，后续再考虑是否使用restful。
+API 端点设计 是否符合Hyperliquid的形式
+---
+计划使用原生rust开发DEX引擎，事件使用原生rust发出，这样sui-indexer-alt好像并不能直接索引，考虑这个问题如何解决，完善到计划文档。
+
+
+# Sui Event
+分析是否可以修改sui的代码，兼容原生rust代码去发出Event，结论输出到 sui/mynotes/dex/analyst/sui-event-rust-analysis.md
