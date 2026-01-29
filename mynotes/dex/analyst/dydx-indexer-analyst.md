@@ -1311,7 +1311,274 @@ func (m *MemClobPriceTimePriority) CancelOrder(...) (*types.OffchainUpdates, err
 
 ---
 
-### 11.4 设计哲学
+### 11.4 事件发送时机详解
+
+> **核心问题**: OffChainUpdates 和 OnChainUpdates 分别在什么时机发出事件？
+
+#### 11.4.1 CometBFT 交易处理阶段
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CometBFT 交易处理生命周期                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   客户端提交交易                                                              │
+│         │                                                                    │
+│         ▼                                                                    │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │                    阶段 1: CheckTx (交易验证)                         │   │
+│   │                                                                      │   │
+│   │   • 验证交易格式、签名、余额                                          │   │
+│   │   • 短期订单: 进入 MemClob 订单簿，执行乐观匹配                        │   │
+│   │   • ★ 触发 OffChainUpdates (OrderPlace/Update/Remove)               │   │
+│   │   • 交易进入 mempool 等待打包                                         │   │
+│   │                                                                      │   │
+│   │   延迟: 毫秒级 (收到交易后立即处理)                                    │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│         │                                                                    │
+│         │ (等待区块打包, ~1-2秒)                                             │
+│         ▼                                                                    │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │                    阶段 2: DeliverTx (交易执行)                        │   │
+│   │                                                                      │   │
+│   │   • 执行交易逻辑 (匹配、转账、仓位更新)                                │   │
+│   │   • 生成 Indexer 事件，添加到 TransientStore                          │   │
+│   │   • ★ 收集 OnChainEvents (order_fill, subaccount_update, ...)        │   │
+│   │   • 状态持久化到链上                                                  │   │
+│   │                                                                      │   │
+│   │   触发时机: 区块打包后，每笔交易逐个执行                               │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│         │                                                                    │
+│         ▼                                                                    │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │                    阶段 3: EndBlocker (区块结束)                       │   │
+│   │                                                                      │   │
+│   │   • 处理区块级逻辑 (资金费率计算、清算等)                              │   │
+│   │   • 调用 ProduceBlock(): 从 TransientStore 收集所有事件               │   │
+│   │   • ★ 批量发送 OnChainEvents 到 Kafka to-ender topic                 │   │
+│   │                                                                      │   │
+│   │   延迟: 区块时间 (~1-2秒)                                             │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 11.4.2 OffChainUpdates 发送时机
+
+**触发阶段**: `CheckTx` (交易验证阶段)
+
+**触发时机**:
+1. **客户端提交短期订单后立即触发** - 不等待区块确认
+2. **订单进入 MemClob 订单簿时** - 乐观执行匹配逻辑
+3. **匹配过程中产生部分成交时** - 实时更新订单状态
+
+**代码调用链**:
+```
+客户端提交 MsgPlaceOrder (短期订单)
+    │
+    ▼
+ABCI CheckTx()
+    │
+    ▼
+keeper.PlaceShortTermOrder()
+    │
+    ▼
+memclob.PlaceOrder()
+    │
+    ├── 生成 OrderPlaceV1 消息
+    ├── 执行乐观匹配
+    ├── 生成 OrderUpdateV1 (如有部分成交)
+    └── 生成 OrderRemoveV1 (如完全成交/取消/失效)
+    │
+    ▼
+keeper.sendOffchainMessagesWithTxHash()
+    │
+    ▼
+indexerMessageSender.SendOffchainData()  ──→  Kafka: to-vulcan
+```
+
+**具体触发场景**:
+
+| 时机 | 事件类型 | 代码位置 | 说明 |
+|------|---------|---------|------|
+| 订单进入订单簿 | OrderPlace | `memclob.go:559` | 短期订单验证通过后 |
+| 乐观匹配中 Taker 成交 | OrderUpdate | `memclob.go:655,710` | Taker 部分/全部成交 |
+| 乐观匹配中 Maker 被吃 | OrderUpdate | `memclob.go:2072` | Maker 被匹配成交 |
+| 订单取消 | OrderRemove | `memclob.go:152` | 取消订单请求 |
+| 订单完全成交 | OrderRemove | `memclob.go:674` | 从订单簿移除 |
+| Post-Only 失败 | OrderRemove | `memclob.go:595` | 会吃单时拒绝 |
+| IOC/FOK 未满足 | OrderRemove | `memclob.go:617` | 立即取消未成交部分 |
+| 替换订单 | OrderReplace | `memclob.go:552` | 先 Remove 再 Place |
+
+**特点**:
+- ⚡ **延迟极低**: 毫秒级 (交易到达节点后立即处理)
+- ⚠️ **乐观状态**: 可能因区块回滚而失效
+- 📌 **仅短期订单**: 长期订单走 OnChain 流程
+
+---
+
+#### 11.4.3 OnChainUpdates 发送时机
+
+**触发阶段**: `DeliverTx` (交易执行) + `EndBlocker` (区块结束)
+
+**触发时机**:
+1. **区块被提议并进入共识后** - 等待 2/3+ 验证者确认
+2. **DeliverTx 逐笔执行交易时** - 收集事件到 TransientStore
+3. **EndBlocker 时批量发送** - 调用 `ProduceBlock()` 发送到 Kafka
+
+**代码调用链**:
+```
+区块进入 Consensus 阶段
+    │
+    ▼
+ABCI BeginBlock()
+    │
+    ▼
+ABCI DeliverTx() (逐笔执行)
+    │
+    ├── process_operations.go: 执行订单匹配
+    │   └── AddTxnEvent(order_fill, subaccount_update, ...)
+    │
+    ├── transfer.go: 执行转账
+    │   └── AddTxnEvent(transfer, ...)
+    │
+    └── stateful_orders.go: 执行长期订单
+        └── AddTxnEvent(stateful_order, ...)
+    │
+    ▼
+ABCI EndBlocker()
+    │
+    ├── 处理资金费率
+    │   └── AddBlockEvent(funding_values, ...)
+    │
+    └── indexerManager.ProduceBlock()
+        │
+        ▼
+        从 TransientStore 收集所有事件
+        │
+        ▼
+        indexerMessageSender.SendOnchainData()  ──→  Kafka: to-ender
+```
+
+**具体触发场景**:
+
+| 时机 | 事件类型 | 触发位置 | 说明 |
+|------|---------|---------|------|
+| 订单成交确认 | order_fill | DeliverTx | MatchOrders 执行成功后 |
+| 仓位/余额变化 | subaccount_update | DeliverTx | UpdateSubaccounts 调用后 |
+| 子账户转账 | transfer | DeliverTx | MsgCreateTransfer 执行后 |
+| 充值确认 | transfer | DeliverTx | MsgDepositToSubaccount 执行后 |
+| 提款确认 | transfer | DeliverTx | MsgWithdrawFromSubaccount 执行后 |
+| 长期订单放置 | stateful_order | DeliverTx | MsgPlaceOrder (Long-Term) |
+| 条件订单放置 | stateful_order | DeliverTx | MsgPlaceOrder (Conditional) |
+| 订单取消确认 | stateful_order | DeliverTx | MsgCancelOrder 执行后 |
+| 资金费率更新 | funding_values | EndBlocker | 每个资金费率周期结束 |
+| 清算事件 | deleveraging | DeliverTx | MatchPerpetualDeleveraging |
+| 永续市场创建 | perpetual_market | DeliverTx | 创建新市场 |
+
+**特点**:
+- 🔒 **最终确定**: 事件代表链上已确认状态
+- ⏱️ **延迟较高**: 区块时间 (~1-2秒)
+- 📦 **批量发送**: EndBlocker 时一次性发送整个区块的所有事件
+
+---
+
+#### 11.4.4 时序对比图
+
+```
+时间轴 ───────────────────────────────────────────────────────────────────────→
+
+T0: 客户端提交订单
+│
+│   ┌────────────────────────────────────────────────────────────────────┐
+│   │                    CheckTx 阶段 (~10-50ms)                          │
+│   │                                                                     │
+│   │  T0+10ms: MemClob.PlaceOrder() 开始                                │
+│   │  T0+15ms: OrderPlace 事件生成                                       │
+│   │  T0+20ms: 乐观匹配执行                                              │
+│   │  T0+25ms: OrderUpdate 事件生成 (如有成交)                           │
+│   │  T0+30ms: ★ SendOffchainData() → Kafka:to-vulcan                   │
+│   │           │                                                         │
+│   │           │ (Vulcan 处理 → Redis → WebSocket)                       │
+│   │           ▼                                                         │
+│   │  T0+50ms: 客户端收到订单状态更新 (WebSocket)                         │
+│   │                                                                     │
+│   └────────────────────────────────────────────────────────────────────┘
+│
+│   (等待区块打包 ~1-2秒)
+│
+T1: 区块 N 开始执行 (T0 + ~1500ms)
+│
+│   ┌────────────────────────────────────────────────────────────────────┐
+│   │                    DeliverTx 阶段 (~100-500ms)                      │
+│   │                                                                     │
+│   │  T1+50ms: 执行订单匹配 (确认)                                       │
+│   │  T1+60ms: AddTxnEvent(order_fill) 添加到 TransientStore            │
+│   │  T1+70ms: AddTxnEvent(subaccount_update)                           │
+│   │                                                                     │
+│   └────────────────────────────────────────────────────────────────────┘
+│
+│   ┌────────────────────────────────────────────────────────────────────┐
+│   │                    EndBlocker 阶段 (~50-200ms)                      │
+│   │                                                                     │
+│   │  T1+500ms: ProduceBlock() 收集事件                                  │
+│   │  T1+510ms: ★ SendOnchainData() → Kafka:to-ender                    │
+│   │            │                                                        │
+│   │            │ (Ender 处理 → PostgreSQL → Kafka:to-websockets)        │
+│   │            ▼                                                        │
+│   │  T1+600ms: 成交记录写入数据库                                       │
+│   │  T1+700ms: 客户端收到成交确认 (WebSocket)                           │
+│   │                                                                     │
+│   └────────────────────────────────────────────────────────────────────┘
+│
+T2: 区块 N 完成 (T0 + ~2000ms)
+```
+
+---
+
+#### 11.4.5 关键差异总结
+
+| 维度 | OffChainUpdates | OnChainUpdates |
+|------|----------------|----------------|
+| **触发阶段** | CheckTx (交易验证) | DeliverTx + EndBlocker |
+| **触发时机** | 交易到达节点后立即 | 区块确认后 |
+| **延迟** | 10-50ms | 1000-2000ms (区块时间) |
+| **状态性质** | 乐观 (可回滚) | 最终确定 |
+| **Kafka Topic** | to-vulcan | to-ender |
+| **处理服务** | Vulcan | Ender |
+| **最终存储** | Redis (热数据) | PostgreSQL (持久化) |
+| **订单类型** | 仅短期订单 | 所有类型 |
+| **事件内容** | 订单状态变化 | 成交、仓位、转账等 |
+
+---
+
+#### 11.4.6 为什么需要两种机制？
+
+**OffChainUpdates 存在的必要性**:
+1. **低延迟交易体验**: 用户下单后毫秒级看到订单状态
+2. **订单簿实时更新**: 做市商需要实时订单簿深度
+3. **高频交易支持**: 短期订单不需要等待区块确认
+
+**OnChainUpdates 存在的必要性**:
+1. **数据持久化**: 成交记录、仓位变化需要永久保存
+2. **最终一致性**: 防止区块回滚导致的数据不一致
+3. **审计需求**: 链上确认的数据具有法律效力
+4. **有状态订单**: 长期订单、条件订单需要链上记录
+
+**两者协作**:
+```
+用户体验:
+  T0+50ms: 看到订单进入订单簿 (OffChain, 乐观)
+  T0+2s:   看到成交确认 (OnChain, 最终)
+
+数据一致性:
+  OffChain: 提供即时反馈，可能被覆盖
+  OnChain:  最终确认，覆盖 OffChain 的乐观状态
+```
+
+---
+
+### 11.5 设计哲学
 
 1. **最终一致性 vs 实时性**:
    - On-chain Events 保证最终一致性，但延迟较高 (区块时间)

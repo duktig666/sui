@@ -13,15 +13,19 @@
 6. dydx区块回滚存储如何回滚？ 完善到文档 dydx-indexer-analyst.md
 7. 第13部分，index专用全节点和普通节点什么区别？如何辨别
 
+---
+1. dydx OffChainUpdates和OnChainUpdates分别是在什么时机发出事件的？ 结论更新到dydx-indexer-analyst.md
+2. cosmos有智能合约和事件吗？DYDX是否用了cosmos的事件
+
+
+# Sui Event
+分析是否可以修改sui的代码，兼容原生rust代码去发出Event，结论输出到 sui/mynotes/dex/analyst/sui-event-rust-analysis.md
 
 # sui-indexer-alt
 1. sui-indexer-alt 是链下的单独服务吗？部署架构是怎样的？
 2. sui-indexer-alt 是如何将数据写入的？
    完善到 sui-indexer-alt-analyst.md
----
 
-
-# Sui Indexer
 sui-indexer-alt 可以将链上数据按照Checkpoint维度索引到链下（机制参看 sui/mynotes/sui/analysis/sui_indexer_data_flow.md）。
 dydx的indexer机制可以作为参考，参看文件 sui/mynotes/dex/analyst/dydx-indexer-analyst.md
 
@@ -82,6 +86,34 @@ API 端点设计 是否符合Hyperliquid的形式
 ---
 计划使用原生rust开发DEX引擎，事件使用原生rust发出，这样sui-indexer-alt好像并不能直接索引，考虑这个问题如何解决，完善到计划文档。
 
+# Rust Indexer by DYDX
+DYDX的双通道索引机制，OffChainUpdates在订单薄更新后发出事件，解决了DEX订单薄等数据的低延迟问题，OnChainUpdates经过区块共识后发出事件，解决最终一致性和历史数据查询的问题。
+如果采用 原生Rust自定义DEX引擎，OffChainUpdates在订单薄更新后发出事件与DYDX一致。
+但是OnChainUpdates的实现背景有一定的区别，DYDX每次共识即区块确定后，即可发出OnChainUpdates的事件。但是sui不像传统区块链，没有区块的概念，对应的是CheckPoint机制，
+CheckPoint的延迟相对是较高的，OnChainUpdates的实现有什么推荐的方案
 
-# Sui Event
-分析是否可以修改sui的代码，兼容原生rust代码去发出Event，结论输出到 sui/mynotes/dex/analyst/sui-event-rust-analysis.md
+针对上述背景和内容进行分析，结论输出到 sui/mynotes/dex/analyst/dex-indexer-full-by-dydx-analysis.md
+
+---
+1. 推荐架构那里 OffChainUpdates 成交记录和持仓变化应该不能更新，因为没有经过最终确认，可以再完善下 OnChainUpdates 更新哪些东西。
+2. 如果采用双层 OnChainUpdates，分别都更新哪些事件
+3. 双层 OnChainUpdates 与只在Checkpoint更新OnChainUpdates 有什么区别，进行利弊分析。
+可以参看dydx的分析 dydx-indexer-analyst.md
+完善执行计划
+
+---
+根据dex-indexer-full-by-dydx-analysis.md确认只使用CheckPoint处理OnChainUpdates。如果借鉴dydx自定义实现OnChainUpdates的话，sui-indexer-alt有可以直接借鉴的地方吗？
+dydx的架构中还加入了kafka，对比sui-indexer-alt 还有现在的方案中是否要引入kafka
+
+---
+根据dex-indexer-full-by-dydx-analysis.md确认只使用CheckPoint处理OnChainUpdates。
+第一阶段实现OnChainUpdates，第二阶段实现OffChainUpdates。
+dex-ui/notes/hyperliquid/http 文件夹下是hyperliquid的api，最终暴露出去的api和hyperliquid的类似，主要是数据模型和端点。端点设计要符合hyperliquid的风格
+部分分析可以参看 dex-indexer-tech-v2.md，先不引入kafka
+在传统的技术方案基础上，重点包括 事件的定义，api的端点，数据模型，存储及表的定义 等等，可以再进行头脑风暴和发散，还要包括哪些重点内容，帮助写出更完善的技术方案。
+再写一份技术方案，输出到 sui/mynotes/dex/tech/dex-indexer-tech-v3.md。
+
+
+
+
+
