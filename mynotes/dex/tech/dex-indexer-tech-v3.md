@@ -4296,6 +4296,475 @@ echo "=== All tests passed ==="
 | sui-indexer-alt 分析 | `sui/mynotes/dex/analyst/sui-indexer-alt-analyst.md` | Pipeline 模式参考 |
 | Hyperliquid API | `dex-ui/notes/hyperliquid/http/` | API 格式参考 |
 | V2 技术方案 | `sui/mynotes/dex/tech/dex-indexer-tech-v2.md` | 前一版本方案 |
+| 模块分析 | `sui/mynotes/dex/tech/dex-indexer-module-analysis.md` | 详细模块设计 |
+
+### D. 代码复用策略
+
+#### D.1 背景
+
+dex-sui 是 fork 自 Sui 官方仓库的项目，DEX Indexer 将在此仓库中实现。需要决定如何复用 sui-indexer-alt 的代码。
+
+#### D.2 方案对比
+
+| 方案 | 优点 | 缺点 |
+|------|------|------|
+| **方案 A: 完全独立开发** | 完全控制、无依赖 | 重复造轮子、维护成本高 |
+| **方案 B: Fork 代码复制** | 可深度定制 | 与上游脱节、合并困难 |
+| **方案 C: Cargo 依赖引入** | 享受上游更新 | 需要轻量修改以支持扩展 |
+
+#### D.3 推荐方案：Cargo 依赖 + 轻量修改
+
+**核心决策**：将 sui-indexer-alt-framework 作为 Cargo 依赖引入，同时对框架进行约 80 行的轻量修改以支持泛化。
+
+**原因**：
+1. **最大化复用**：Pipeline、Collector、Committer、Watermark 等核心组件无需重写
+2. **保持同步**：可以持续获得上游的 bug 修复和性能优化
+3. **修改最小化**：仅需泛化 `Processor` trait 的输入类型
+
+#### D.4 需要修改的代码
+
+**sui-indexer-alt-framework/src/pipeline/mod.rs**（约 80 行修改）：
+
+```rust
+// 修改前：Processor 固定绑定 Arc<Checkpoint>
+pub trait Processor {
+    type Input: Send + Sync + 'static;  // 固定为 Arc<Checkpoint>
+    // ...
+}
+
+// 修改后：泛化为任意 Input 类型
+pub trait Processor {
+    type Input: Send + Sync + 'static;  // 可以是任意类型
+    type Output: Send + Sync + 'static;
+
+    fn process(&self, input: &Self::Input) -> Result<Vec<Self::Output>>;
+    fn commit(&self, outputs: Vec<Self::Output>, conn: &mut PgConnection) -> Result<()>;
+}
+
+// 新增：带数据源泛型的 Pipeline
+pub struct Pipeline<S: DataSource, P: Processor<Input = S::Item>> {
+    processor: P,
+    source: S,
+    // ...
+}
+
+// 新增：数据源 trait
+pub trait DataSource {
+    type Item: Send + Sync + 'static;
+
+    async fn subscribe(&self) -> impl Stream<Item = Self::Item>;
+}
+```
+
+#### D.5 新增 Crate 结构
+
+```
+dex-sui/crates/
+├── dex-indexer-proto/           # gRPC Proto 定义
+│   ├── proto/dex/indexer/v1/
+│   │   ├── events.proto         # FillEvent, PositionUpdateEvent 等
+│   │   └── service.proto        # DexEventService 定义
+│   └── src/lib.rs               # prost 生成的 Rust 代码
+│
+├── dex-indexer-types/           # 共享类型定义
+│   └── src/
+│       ├── events.rs            # Event 枚举
+│       ├── models.rs            # Market, Position, Order 等
+│       └── lib.rs
+│
+├── dex-indexer-schema/          # 数据库 Schema
+│   └── src/
+│       ├── fills.rs
+│       ├── positions.rs
+│       ├── candles.rs
+│       └── lib.rs
+│
+├── dex-indexer-framework/       # 扩展框架（依赖 sui-indexer-alt-framework）
+│   └── src/
+│       ├── source/
+│       │   └── grpc.rs          # gRPC 数据源实现
+│       ├── pipeline.rs          # 泛化 Pipeline 封装
+│       └── lib.rs
+│
+├── dex-indexer-handlers/        # 事件处理器
+│   └── src/
+│       ├── fills.rs
+│       ├── positions.rs
+│       ├── candles.rs
+│       ├── funding.rs
+│       └── lib.rs
+│
+├── dex-indexer-api/             # REST/WebSocket API
+│   └── src/
+│       ├── handlers/
+│       │   ├── info.rs          # POST /info 处理
+│       │   └── exchange.rs      # POST /exchange 处理
+│       ├── websocket.rs
+│       └── lib.rs
+│
+└── dex-indexer/                 # 主入口
+    └── src/
+        ├── main.rs
+        └── config.rs
+```
+
+#### D.6 依赖关系图
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         dex-indexer (主入口)                          │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+                 ┌──────────────────┼──────────────────┐
+                 ▼                  ▼                  ▼
+    ┌────────────────────┐ ┌──────────────┐ ┌──────────────────┐
+    │ dex-indexer-api    │ │dex-indexer-  │ │ dex-indexer-     │
+    │ (REST/WS)          │ │handlers      │ │ framework        │
+    └────────────────────┘ └──────────────┘ └──────────────────┘
+              │                   │                  │
+              └─────────┬─────────┘                  │
+                        ▼                            │
+              ┌──────────────────┐                   │
+              │ dex-indexer-     │                   │
+              │ schema           │                   │
+              └──────────────────┘                   │
+                        │                            │
+              ┌─────────┴────────────────────────────┘
+              ▼                            ▼
+    ┌──────────────────┐     ┌─────────────────────────────────┐
+    │ dex-indexer-     │     │ sui-indexer-alt-framework       │
+    │ types            │     │ (Cargo 依赖, 轻量修改)           │
+    └──────────────────┘     └─────────────────────────────────┘
+              │
+              ▼
+    ┌──────────────────┐
+    │ dex-indexer-     │
+    │ proto            │
+    └──────────────────┘
+```
+
+#### D.7 复用程度估算
+
+| 组件 | 复用来源 | 复用程度 | 说明 |
+|------|---------|---------|------|
+| Pipeline 核心 | sui-indexer-alt-framework | 80% | 泛化后直接使用 |
+| Collector | sui-indexer-alt-framework | 80% | 批量收集逻辑复用 |
+| Committer | sui-indexer-alt-framework | 70% | 事务提交逻辑复用 |
+| Watermark | sui-indexer-alt-framework | 90% | 断点续传完全复用 |
+| Pruner | sui-indexer-alt-framework | 90% | 清理逻辑复用 |
+| 数据源 (Ingestion) | 无 | 0% | 全新实现 gRPC 客户端 |
+| Schema | 无 | 0% | 全新定义 DEX 表结构 |
+| Handlers | 参考模式 | 30% | 实现不同但模式相似 |
+| REST API | 无 | 0% | 全新实现对标 Hyperliquid |
+
+#### D.8 实施步骤
+
+1. **Fork 仓库准备**
+   - 在 dex-sui 仓库中创建 `crates/dex-indexer-*` 目录结构
+   - 配置 workspace Cargo.toml
+
+2. **修改 sui-indexer-alt-framework**
+   - 泛化 `Processor` trait（约 80 行）
+   - 添加 `DataSource` trait
+   - 确保原有 Checkpoint 处理不受影响
+
+3. **实现新 Crates**
+   - 按依赖顺序：proto → types → schema → framework → handlers → api → main
+   - 每个 crate 独立测试
+
+4. **集成测试**
+   - 端到端测试 gRPC → Pipeline → PostgreSQL → REST API
+
+#### D.9 风险与缓解
+
+| 风险 | 缓解措施 |
+|------|---------|
+| 上游 API 变更 | 锁定特定版本，定期评估升级 |
+| 泛化改动影响原功能 | 保持向后兼容，添加单元测试 |
+| 编译时间增加 | 使用 workspace 增量编译 |
+
+#### D.10 各模块详细文件结构
+
+##### D.10.1 dex-indexer-proto（gRPC 定义）
+
+```
+dex-indexer-proto/
+├── Cargo.toml
+├── build.rs                            # prost-build 构建脚本
+└── proto/
+    └── dex/indexer/v1/
+        ├── events.proto                # OnChainUpdates + OffChainUpdates 事件
+        └── service.proto               # DexEventService gRPC 定义
+```
+
+**事件定义**：
+- `FillEvent`, `PositionUpdateEvent`, `BalanceUpdateEvent`
+- `FundingRateEvent`, `LiquidationEvent`, `TransferEvent`
+- `OrderPlaceEvent`, `OrderUpdateEvent`, `OrderRemoveEvent`（Phase 2）
+
+##### D.10.2 dex-indexer-types（类型定义）
+
+```
+dex-indexer-types/
+├── Cargo.toml
+└── src/
+    ├── lib.rs
+    ├── events.rs                       # 事件 Rust 类型
+    ├── api/
+    │   ├── mod.rs
+    │   ├── info.rs                     # InfoRequest/Response
+    │   └── exchange.rs                 # ExchangeRequest/Response
+    ├── models/
+    │   ├── mod.rs
+    │   ├── market.rs                   # PerpAsset, SpotAsset, AssetCtx
+    │   ├── order.rs                    # OpenOrder, FrontendOrder
+    │   ├── fill.rs                     # UserFill
+    │   ├── position.rs                 # AssetPosition, PositionInfo
+    │   ├── candle.rs                   # Candle
+    │   └── funding.rs                  # FundingHistory
+    └── enums.rs                        # Side, LeverageType, OrderStatus
+```
+
+##### D.10.3 dex-indexer-schema（数据库 Schema）
+
+```
+dex-indexer-schema/
+├── Cargo.toml
+├── migrations/                         # Diesel 迁移文件
+│   ├── 00000000000000_init/
+│   │   └── up.sql                      # 初始化 Schema
+│   └── 2026xxxx_create_tables/
+│       └── up.sql                      # 创建 DEX 表
+└── src/
+    ├── lib.rs
+    ├── schema.rs                       # Diesel schema 自动生成
+    ├── models/
+    │   ├── mod.rs
+    │   ├── market.rs
+    │   ├── order.rs
+    │   ├── fill.rs
+    │   ├── position.rs
+    │   ├── balance.rs
+    │   ├── candle.rs
+    │   ├── funding.rs
+    │   ├── transfer.rs
+    │   ├── liquidation.rs
+    │   └── watermark.rs
+    └── queries/                        # 预定义查询
+        ├── mod.rs
+        ├── fills.rs
+        └── positions.rs
+```
+
+##### D.10.4 dex-indexer-framework（核心框架）
+
+```
+dex-indexer-framework/
+├── Cargo.toml
+└── src/
+    ├── lib.rs
+    ├── ingestion/                      # 数据摄入（替换 sui-indexer-alt）
+    │   ├── mod.rs
+    │   ├── grpc_client.rs              # DEX Engine gRPC Client
+    │   ├── config.rs
+    │   └── error.rs
+    ├── pipeline/                       # 借鉴 sui-indexer-alt-framework
+    │   ├── mod.rs
+    │   ├── processor.rs                # Processor trait
+    │   ├── concurrent/
+    │   │   ├── mod.rs
+    │   │   ├── handler.rs              # Handler trait
+    │   │   ├── collector.rs
+    │   │   ├── committer.rs
+    │   │   └── watermark.rs
+    │   └── sequential/
+    │       └── mod.rs
+    ├── store/                          # 借鉴 store-traits
+    │   ├── mod.rs
+    │   ├── traits.rs                   # Store, Connection trait
+    │   └── postgres.rs                 # PostgreSQL 实现
+    └── metrics.rs
+```
+
+##### D.10.5 dex-indexer-handlers（事件处理器）
+
+```
+dex-indexer-handlers/
+├── Cargo.toml
+└── src/
+    ├── lib.rs
+    ├── mod.rs
+    ├── fills.rs                        # FillsHandler
+    ├── positions.rs                    # PositionsHandler
+    ├── balances.rs                     # BalancesHandler
+    ├── candles.rs                      # CandlesHandler（K线聚合）
+    ├── funding.rs                      # FundingHandler
+    ├── transfers.rs                    # TransfersHandler
+    ├── liquidations.rs                 # LiquidationsHandler
+    └── orders.rs                       # OrdersHandler（Phase 2）
+```
+
+##### D.10.6 dex-indexer-api（REST API）
+
+```
+dex-indexer-api/
+├── Cargo.toml
+└── src/
+    ├── lib.rs
+    ├── server.rs                       # Axum HTTP 服务器
+    ├── routes/
+    │   ├── mod.rs
+    │   ├── info.rs                     # POST /info 路由
+    │   └── exchange.rs                 # POST /exchange 路由
+    ├── handlers/
+    │   ├── mod.rs
+    │   ├── info/
+    │   │   ├── mod.rs
+    │   │   ├── meta.rs                 # type=meta
+    │   │   ├── l2_book.rs              # type=l2Book
+    │   │   ├── candle.rs               # type=candleSnapshot
+    │   │   ├── clearinghouse.rs        # type=clearinghouseState
+    │   │   ├── orders.rs               # type=openOrders, frontendOpenOrders
+    │   │   ├── fills.rs                # type=userFills, userFillsByTime
+    │   │   └── funding.rs              # type=fundingHistory
+    │   └── exchange/
+    │       ├── mod.rs
+    │       ├── order.rs                # action.type=order
+    │       ├── cancel.rs               # action.type=cancel
+    │       └── leverage.rs             # action.type=updateLeverage
+    ├── middleware/
+    │   ├── mod.rs
+    │   ├── logging.rs
+    │   └── metrics.rs
+    └── error.rs
+```
+
+##### D.10.7 dex-indexer-ws（WebSocket，Phase 2）
+
+```
+dex-indexer-ws/
+├── Cargo.toml
+└── src/
+    ├── lib.rs
+    ├── server.rs                       # WebSocket 服务器
+    ├── subscriptions/
+    │   ├── mod.rs
+    │   ├── all_mids.rs                 # allMids 订阅
+    │   ├── l2_book.rs                  # l2Book 订阅
+    │   ├── trades.rs                   # trades 订阅
+    │   ├── candle.rs                   # candle 订阅
+    │   ├── order_updates.rs            # orderUpdates 订阅
+    │   └── user_fills.rs               # userFills 订阅
+    ├── broadcast/
+    │   ├── mod.rs
+    │   └── broadcaster.rs              # 消息广播器
+    └── connection/
+        ├── mod.rs
+        └── manager.rs                  # 连接管理
+```
+
+#### D.11 Handler 实现模式
+
+借鉴 sui-indexer-alt 的 Handler trait 设计：
+
+```rust
+#[async_trait]
+impl Handler for FillsHandler {
+    type Store = DexStore;
+    type Batch = Vec<FillRow>;
+
+    fn batch(&self, batch: &mut Self::Batch, values: &mut IntoIter<Self::Value>) -> BatchStatus {
+        batch.extend(values);
+        BatchStatus::Ready
+    }
+
+    async fn commit<'a>(
+        &self,
+        batch: &Self::Batch,
+        conn: &mut DexConnection<'a>,
+    ) -> Result<usize> {
+        // 批量插入 fills 表
+        diesel::insert_into(fills::table)
+            .values(batch)
+            .on_conflict(fills::fill_id)
+            .do_nothing()
+            .execute(conn)
+            .await
+    }
+}
+```
+
+#### D.12 与 sui-indexer-alt 的差异
+
+| 组件 | sui-indexer-alt | dex-indexer |
+|------|-----------------|-------------|
+| 数据源 | Checkpoint gRPC (Full Node) | DEX Engine gRPC |
+| 事件类型 | Sui TransactionEffects | DexEventBatch |
+| Checkpoint | Sui Checkpoint | DEX Checkpoint Sequence |
+| 数据模型 | Objects, Events | Fills, Positions, Balances |
+| API 风格 | JSON-RPC | POST /info + /exchange |
+
+#### D.13 sui-indexer-alt 可借鉴模块
+
+```
+sui/crates/
+├── sui-indexer-alt-framework/          # ✅ 核心框架（借鉴 Pipeline 模式）
+│   ├── src/
+│   │   ├── ingestion/                  # 需替换为 DEX gRPC Client
+│   │   │   ├── streaming_client.rs     # gRPC 订阅 Checkpoint
+│   │   │   └── broadcaster.rs          # 广播机制
+│   │   ├── pipeline/                   # ✅ 直接借鉴
+│   │   │   ├── concurrent/             # 并发 Pipeline
+│   │   │   │   ├── collector.rs        # 批量收集
+│   │   │   │   ├── committer.rs        # 批量提交
+│   │   │   │   └── pruner.rs           # 数据清理
+│   │   │   └── sequential/             # 顺序 Pipeline
+│   │   └── postgres/                   # ✅ PostgreSQL Handler（借鉴）
+│
+├── sui-indexer-alt-framework-store-traits/  # ✅ Store 抽象（借鉴）
+│   └── src/lib.rs                      # Store、Connection trait 定义
+│
+├── sui-indexer-alt/                    # Handler 实现（参考模式）
+│   └── src/handlers/
+│       ├── ev_emit_mod.rs              # 事件处理示例
+│       ├── kv_transactions.rs          # KV 处理示例
+│       └── tx_balance_changes.rs       # 余额处理示例
+│
+├── sui-indexer-alt-jsonrpc/            # JSON-RPC API（参考）
+└── sui-indexer-alt-metrics/            # Prometheus 指标（借鉴）
+```
+
+#### D.14 工作量估算
+
+##### Phase 1 开发顺序与工作量
+
+| 序号 | 模块 | 工作量 | 说明 |
+|-----|------|--------|------|
+| 1 | `dex-indexer-proto` | 1-2 天 | Proto 定义 + prost 构建 |
+| 2 | `dex-indexer-types` | 2-3 天 | 类型定义 + serde |
+| 3 | `dex-indexer-schema` | 2-3 天 | DDL + Diesel 集成 |
+| 4 | `dex-indexer-framework` | 5-7 天 | Pipeline 复用 + gRPC Client |
+| 5 | `dex-indexer-handlers` | 5-7 天 | 7 个 Handler 实现 |
+| 6 | `dex-indexer-api` | 5-7 天 | 20+ 个 API 端点 |
+| 7 | `dex-indexer` | 1-2 天 | 主程序集成 |
+| | **Phase 1 总计** | **~4 周** | |
+
+##### Phase 2 新增
+
+| 模块 | 工作量 | 说明 |
+|------|--------|------|
+| `dex-indexer-ws` | 5-7 天 | WebSocket 服务 |
+| Redis 集成 | 2-3 天 | 订单簿缓存 |
+| OffChainUpdates Handler | 3-4 天 | 实时订单更新 |
+| **Phase 2 总计** | **~2 周** | |
+
+#### D.15 核心设计原则
+
+1. **独立部署**：DEX Indexer 作为独立服务，不侵入 Sui 核心代码
+2. **借鉴成熟模式**：复用 sui-indexer-alt 的 Pipeline 架构
+3. **替换数据源**：从 Sui Checkpoint gRPC 改为 DEX Engine gRPC
+4. **对标 Hyperliquid**：API 设计完全对标 Hyperliquid 风格
+5. **分阶段实施**：Phase 1 功能验证，Phase 2 性能优化
 
 ---
 
