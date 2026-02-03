@@ -151,6 +151,26 @@ module dex_events::events {
 
 ---
 
+### 1.5 设计参考来源
+
+| 设计维度 | 参考来源 | 说明 |
+|---------|---------|------|
+| **REST API** | Hyperliquid | POST /info + POST /exchange 模式，type 字段区分请求类型 |
+| **事件设计** | dYdX v4 | 参考 On-chain Events 模式（最终确定状态） |
+
+#### dYdX 双通道模式参考
+
+dYdX v4 使用双通道数据流设计，我们在 Phase 1 仅实现 On-chain Events：
+
+| 通道 | dYdX 概念 | 我们的实现 | 说明 |
+|------|----------|-----------|------|
+| **On-chain Events** | OrderFillEvent, SubaccountUpdateEvent, TransferEvent, FundingEvent | FillEvent, PositionUpdateEvent, BalanceUpdateEvent, TransferEvent, FundingSettlementEvent | 最终确定状态，通过 Checkpoint 索引，存入 PostgreSQL |
+| **Off-chain Updates** | OrderPlaceV1, OrderUpdateV1, OrderRemoveV1 | 暂不实现 | 乐观状态，用于实时订单簿推送 (Phase 2 可选扩展) |
+
+**设计决策**：Phase 1 仅实现 On-chain Events，通过 Checkpoint 订阅获得数据一致性和可靠性。Off-chain Updates 可在 Phase 2 按需添加 gRPC/WebSocket 实时流，用于毫秒级订单簿更新。
+
+---
+
 ## 2. 系统架构
 
 ### 2.1 整体架构图

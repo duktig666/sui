@@ -20,6 +20,13 @@ dex-sui/v4-chain 是dydx的实现和dydx-v4-chain项目一样，在进行实现�
 ---
 mkdir open touch 等基础命令如果遇到权限问题，可以尝试加上sudo执行 这个整理到dex/CLAUDE.md
 
+DEX API主要参考hyperliquid，事件的设计，包括OnChainUpdates和OffChainUpdates，主要参考dydx。
+dex-indexer和dex-api的技术方案和实施计划要参看最新版本的文件。
+这个整理到dex/CLAUDE.md
+
+DEX API主要参考hyperliquid，hyperliquid的api文件在dex-ui/notes/hyperliquid/http 这个整理到dex/CLAUDE.md
+
+sui/mynotes/draft 下是历史文档，代码实现不用参考 这个整理到dex/CLAUDE.md
 
 ## 多Claude code 的Git问题
 多Claude code同时编写一个git仓库，可能遇到git冲突或者编译问题。 Claude的superpower或者git的worktree是否有解决的办法，给出最佳实践，并输出到一个文件。
@@ -126,6 +133,11 @@ API 端点设计 是否符合Hyperliquid的形式
 梳理下当阶段和任务完成的进展，推荐接下来该做什么事                                                    
 什么时候可以进行阶段性的启动节点，发送交易，索引和api查询验证
 
+---
+
+sui-index-alt 的部署架构是怎样的，连接全节点还是验证者节点？每个节点都需要sui-index-alt吗，然后整体提供rpc服务，还是其他的方案？
+结论输出到 sui/mynotes/sui 文件夹下
+
 
 # Rust Indexer by DYDX
 ## 方案设计
@@ -225,9 +237,13 @@ dex-node-test 是之前写的测试，目的是通过真实的下单，发送给
 ## 启动节点
 
 ```sh
-# 1. 编译 sui 二进制 (启用 dex-demo feature)
-cargo build -p sui -p dex-indexer -p dex-node-test  
 cargo build --bin sui 
+
+# 清空所有表
+sudo docker exec dex-indexer-db psql -U dex -d dex_indexer -c "TRUNCATE TABLE dex_balances, dex_fills, dex_watermarks, watermarks CASCADE;"
+
+# 1. 编译 sui 二进制
+cargo build -p sui -p dex-indexer -p dex-api -p dex-node-test  
 
 sudo rm -rf local-network-config/**
 rm -rf ~/.sui/sui_config/network.yaml
@@ -272,15 +288,13 @@ cargo run -p dex-node-test --example place_order -- --fullnode-url http://127.0.
   --first-checkpoint                                                                                      
     0                                                                                                     
   类型: 长期运行      
-  ./target/debug/dex-indexer --database-url postgres://dex:dex123@localhost:5432/dex_indexer --rpc-api-url http://127.0.0.1:9001 --first-checkpoint 0                                                                                     
+  RUST_LOG=dex_indexer=debug,sui_indexer_alt_framework::pipeline::logging=info ./target/debug/dex-indexer --database-url postgres://dex:dex123@localhost:5432/dex_indexer --rpc-api-url http://127.0.0.1:9001 --first-checkpoint 0                                                                                     
   ────────────────────────────────────────                                                                
   终端: 3                                                                                                 
   服务: dex-api                                                                                           
   命令: ./target/debug/dex-api --database-url ... --api-listen-address 0.0.0.0:3000                       
   类型: 长期运行          
   ./target/debug/dex-api --database-url postgres://dex:dex123@localhost:5432/dex_indexer --api-listen-address 0.0.0.0:3000   
-  
-  curl -s http://127.0.0.1:3000/info -X POST -H "Content-Type: application/json" -d '{"type": "userBalances", "subaccount":"0x09e14c299694a9fb266fac086188376ee5dd512cc890a59b4b3a316d96c14c0b", "limit": 10}' | jq                                                                              
   ────────────────────────────────────────                                                                
   终端: 4                                                                                                 
   服务: dex-node-test                                                                                     
@@ -291,9 +305,59 @@ cargo run -p dex-node-test --example place_order -- --fullnode-url http://127.0.
   - Sui 节点需要先启动并稳定运行                                                                          
   - dex-indexer 启动后会开始处理 checkpoint
   
-  cargo run -p dex-node-test --example place_order -- --fullnode-url http://127.0.0.1:9001 
-  cargo run -p dex-node-test --example fill_and_verify -- --fullnode-url http://127.0.0.1:9001
+  -----------------------------------------
+  
+# 运行 API E2E 测试 (simtest)                                                       
+cargo simtest -p dex-indexer-e2e-test --test api_balance_tests                      
+cargo simtest -p dex-indexer-e2e-test --test api_perpetual_tests                    
+                                                                                  
+# 运行所有 E2E 测试                                                                 
+cargo simtest -p dex-indexer-e2e-test                                                
+                                                                                         
+# 运行 dex-node-test 测试                                                              
+cargo simtest -p dex-node-test
+  
+cargo run -p dex-node-test --example place_order -- --fullnode-url http://127.0.0.1:9001 
+curl -s http://127.0.0.1:3000/info -X POST -H "Content-Type: application/json" -d '{"type": "userBalances", "subaccount":"0x80ba1c742a3d4a02d0275046d1e01a31cffb341da49f14e66932c66cee05110d", "limit": 10}' | jq                                                                              
+  
+cargo run -p dex-node-test --example fill_and_verify -- --fullnode-url http://127.0.0.1:9001
+curl -X POST http://127.0.0.1:3000/info \                                                     
+-H "Content-Type: application/json" \                                                       
+-d '{"type": "userFills", "subaccount": "0x...", "limit": 10}'   
 
+# 市场创建事件验证                                                                                     
+cargo run -p dex-node-test --example perpetual_and_verify -- --fullnode-url http://127.0.0.1:9001      
+                                                                                                         
+# 持仓变化事件验证                                                                                     
+cargo run -p dex-node-test --example position_and_verify -- --fullnode-url http://127.0.0.1:9001
+
+perpetual_and_verify API 验证                                                                          
+                                                                                                         
+  # 查询市场元数据（验证 PerpetualCreatedEvent）                                                         
+  curl -s http://127.0.0.1:3000/info -X POST -H "Content-Type: application/json" -d '{"type": "meta"}' | jq                                                                           
+                                                                                                         
+  position_and_verify API 验证                                                                           
+                                                                                                         
+  # 1. 查询最近成交（验证 FillEvent）                                                                    
+  curl -s http://127.0.0.1:3000/info -X POST \                                                           
+    -H "Content-Type: application/json" \                                                                
+    -d '{"type": "recentFills", "perpetualId": 0, "limit": 10}' | jq                                     
+                                                                                                         
+  # 2. 查询用户持仓和保证金（验证 PositionUpdateEvent）                                                  
+  # 替换 <SUBACCOUNT_ID> 为示例输出中的子账户 ID                                                         
+  curl -s http://127.0.0.1:3000/info -X POST \                                                           
+    -H "Content-Type: application/json" \                                                                
+    -d '{"type": "clearinghouseState", "subaccount": "<SUBACCOUNT_ID>"}' | jq                            
+                                                                                                         
+  # 3. 查询用户成交历史                                                                                  
+  curl -s http://127.0.0.1:3000/info -X POST \                                                           
+    -H "Content-Type: application/json" \                                                                
+    -d '{"type": "userFills", "subaccount": "<SUBACCOUNT_ID>", "limit": 10}' | jq                        
+                                                                                                         
+  # 4. 查询用户余额变化（验证 BalanceUpdateEvent）                                                       
+  curl -s http://127.0.0.1:3000/info -X POST \                                                           
+    -H "Content-Type: application/json" \                                                                
+    -d '{"type": "userBalances", "subaccount": "<SUBACCOUNT_ID>", "limit": 10}' | jq 
 ```
 
 
@@ -323,5 +387,40 @@ Caused by:
 ---
 BalanceUpdateEvent 是否有和hyperliquid info相关的api，如果没有 写个测试的api，测试下api服务的可用性
 
----
+有时需要重新部署节点从0开始运行，并初始化indexer数据库的状态，帮我写出执行命令到一个sui/mynotes/dex下的一个文档。如下是已知现在的执行命令
 
+---
+dex-indexer的开发当前已经有了阶段性成果，BalanceUpdateEvent实现了全流程的验证，place_order在创建subaccount和deposit后，
+BalanceUpdateEvent可以被正常的索引，以及userBalances可以被api访问。
+现在帮我整理输出一个文档，介绍如下内容：
+1. 当前阶段dex-indexer是如何实现的，都改了哪些内容？
+2. 关键设计和实现的介绍和分析
+整理一个文档到 dex-sui/docs/indexer 下
+
+---
+dex-indexer 是一个新的服务，和sui-indexer-alt的关系是什么？
+Watermark 机制 每个事件是独立的进度还是全局进度，dex-indexer会和sui-indexer-alt 共享进度吗？
+dex-indexer中每个事件为什么要独立Watermark进度？为什么不共享？
+
+---
+拉取了新的代码placeOrder e2e可以测试通过，下单仍有问题
+=== Step 4: Placing limit order ===
+Error: ErrorObject { code: InternalError, message: "Internal error", data: None }
+
+Caused by:
+ErrorObject { code: InternalError, message: "Internal error", data: None }
+再去进行分析
+
+---
+DEX API主要参考hyperliquid，事件的设计，包括OnChainUpdates和OffChainUpdates，主要参考dydx。  
+
+dex-indexer 和 dex-api 可以模块分离，考虑在 crates 下新建模块，秉承 模块职责分离的思想 看实施计划各阶段的模块文件夹如何设计调整？包括 双通道的dex-indexer、ws阶段和dex-api
+根据上述分析内容 修改技术方案和实施计划
+
+--- 
+dex-node-test 下编写发送交易给节点的真实交易 完善现有功能事件真实交易的测试
+再建一个模块 dex-indexer-e2e-test 参考 sui-e2e-tests 和 sui-indexer-alt-e2e-tests 对已实现功能进行e2e测试（除了成交相关的事件，现在成交有问题） 
+sui-e2e-tests下如果有dex-indexer的测试也迁移到 dex-indexer-e2e-test
+
+---
+dex-indexer新加的Event的在 dex-node-test添加真实发送给节点的交易示例，并给出如何验证事件索引和api查询的命令 完善文档到 sui/mynotes/dex/e2e/fresh-deploy-guide.md

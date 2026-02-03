@@ -1403,7 +1403,7 @@ services:
       - "6379:6379"
 
   indexer:
-    build: .
+    build: ../../../dex/tech
     environment:
       DATABASE_URL: postgres://indexer:${DB_PASSWORD}@postgres/dex_indexer
       REDIS_URL: redis://redis:6379

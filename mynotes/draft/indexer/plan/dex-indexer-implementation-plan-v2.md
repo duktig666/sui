@@ -414,9 +414,12 @@ SUI_SKIP_SIMTESTS=1 cargo nextest run -p dex-indexer -- integration
 
 ## 7. 当前状态
 
-**更新日期**: 2026-01-30
+**更新日期**: 2026-02-03
 
-- [ ] Phase 0: 基础设施准备 - **待开始**
+- [x] Phase 0: 基础设施准备 - **已完成** ✅
+  - dex-indexer crate 已创建
+  - 数据库 migrations 已建立 (dex_fills, dex_balances)
+  - 测试数据库连接正常
 - [x] Phase 1.1: FillEvent 类型定义 - **已完成** ✅
   - 创建 `sui-types/src/dex_events.rs`
   - 定义 `DEX_EVENTS_PACKAGE` 虚拟地址
@@ -432,13 +435,37 @@ SUI_SKIP_SIMTESTS=1 cargo nextest run -p dex-indexer -- integration
   - 此问题与事件发射无关，是 DEX 执行层的预先存在问题
   - 单元测试（dex_events）已验证事件序列化正确
 - [ ] Phase 1.5: 事件索引可行性验证 ⭐ **被同一 simtest 问题阻塞**
-- [ ] Phase 1.8: 完善其他事件类型
-- [ ] Phase 2: 核心 Handlers（成交数据）
-- [ ] Phase 3: 核心 Handlers（账户状态）
-- [ ] Phase 4: 高级 Handlers
-- [ ] Phase 5: Indexer 主程序
-- [ ] Phase 6: REST API 基础
-- [ ] Phase 7: 端到端集成
+- [x] Phase 1.8: 完善其他事件类型 - **大部分完成**
+  - [x] `BalanceUpdateEvent` - 已实现并验证通过 ✅
+  - [x] 在 `deposit_subaccount` 时发射 `BalanceUpdateEvent` ✅
+  - [x] 在 `withdraw_subaccount` 时发射 `BalanceUpdateEvent` ✅
+  - [x] `PositionUpdateEvent` - 已实现 ✅ (2026-02-03，订单撮合时发射)
+  - [ ] `FundingSettlementEvent` - 待实现
+  - [ ] `LiquidationEvent` - 待实现
+- [ ] Phase 2: 核心 Handlers（成交数据） - **部分完成**
+  - [x] fills 表 Schema ✅
+  - [x] FillsHandler 实现 ✅ (代码完成，但 FillEvent 阻塞无法验证)
+- [x] Phase 3: 核心 Handlers（账户状态） - **已完成** ✅
+  - [x] balances 表 Schema ✅
+  - [x] BalancesHandler 实现 ✅
+  - [x] BalanceUpdateEvent 全流程验证通过 ✅ (2026-02-02)
+  - [x] positions 表 Schema ✅ (2026-02-03，migration 2026-02-03-000001_dex_positions)
+  - [x] PositionsHandler 实现 ✅ (2026-02-03，双表设计：dex_positions + dex_position_updates)
+- [ ] Phase 4: 高级 Handlers - **待开始**
+- [x] Phase 5: Indexer 主程序 - **已完成** ✅
+  - [x] main.rs 入口 ✅
+  - [x] api_main.rs 入口 ✅
+  - [x] 配置加载 ✅
+- [x] Phase 6: REST API 基础 - **大部分完成**
+  - [x] Axum server 框架 ✅
+  - [x] POST /info 路由分发 ✅
+  - [x] `type: "userBalances"` ✅
+  - [x] `type: "userFills"` ✅ (代码完成，格式需改为 Hyperliquid 兼容)
+  - [x] `type: "clearinghouseState"` ✅ (2026-02-03，⚠️ 计算值为占位符，需完善)
+  - [ ] `type: "candleSnapshot"` - 待实现
+- [ ] Phase 7: 端到端集成 - **部分完成**
+  - [x] BalanceUpdateEvent 端到端验证 ✅
+  - [ ] FillEvent 端到端验证 - 阻塞
 
 ### 待解决问题
 
@@ -447,6 +474,14 @@ SUI_SKIP_SIMTESTS=1 cargo nextest run -p dex-indexer -- integration
    - 错误信息: "version must be monotonically increasing (0x2 < 0x2)"
    - 影响范围: 所有 DEX simtest（`test_dex_place_limit_order`, `test_dex_order_matching` 等）
    - 需要单独调查并修复
+
+2. **FillEvent 端到端验证阻塞**: 依赖 simtest 问题修复
+
+### 已验证可工作的功能
+
+1. **BalanceUpdateEvent 全流程** (2026-02-02)
+   - Deposit/Withdraw → 事件发射 → Checkpoint → Indexer → PostgreSQL → API
+   - 通过本地节点 + place_order 测试验证
 
 ---
 
@@ -478,3 +513,54 @@ Phase 2-7 (完整 Indexer)   │
 - 检查 events_digest 计算是否正确
 - 检查 TransactionEvents 是否正确包含事件
 - 检查 BCS 序列化/反序列化是否一致
+
+---
+
+## 9. Phase 8: API 完善与 Hyperliquid 兼容
+
+> 基于 2026-02-03 设计审查结论添加
+
+### 9.1 审查结论
+
+| 维度 | 评分 | 主要问题 |
+|------|------|---------|
+| 事件设计 | 7.3/10 | 缺少 asset_id、total_filled、funding_index |
+| 数据库 Schema | 7.5/10 | 缺少资产持仓快照表、PnL 字段 |
+| API 设计 | 4.6/10 | 端点覆盖率仅 14%，响应格式不兼容 |
+
+### 9.2 紧急修复（阻塞前端开发）
+
+#### 9.2.1 API 计算值实现
+- [ ] clearinghouseState 实现真实 margin_summary 计算（非占位符 "0"）
+- [ ] clearinghouseState 实现 position_value、unrealized_pnl、liquidation_px 计算
+- [ ] 添加 MarginSummary.total_margin_used 字段
+- [ ] 添加 PositionInfo.max_leverage、cum_funding 字段
+
+#### 9.2.2 高优先级端点实现
+- [ ] `meta` / `metaAndAssetCtxs` - 市场元数据
+- [ ] `l2Book` - 订单簿深度
+- [ ] `openOrders` / `historicalOrders` - 订单查询
+- [ ] `userFunding` / `fundingHistory` - 资金费率
+
+#### 9.2.3 响应格式兼容
+- [ ] 统一错误响应格式为 `{status: "ok"/"err", response: ...}`
+- [ ] userFills 重构为 Hyperliquid 兼容格式（字段名、数据类型）
+
+### 9.3 高优先级（核心功能）
+
+#### 9.3.1 事件字段补全
+- [ ] TransferEvent 添加 `asset_id: u32`
+- [ ] FillEvent 添加 `total_filled_taker: u64, total_filled_maker: u64`
+- [ ] FundingSettlementEvent 添加 `funding_index: i128`
+- [ ] LiquidationEvent 添加 `is_final_settlement: bool`
+
+#### 9.3.2 数据库 Schema 补全
+- [ ] 创建 `dex_asset_positions` 表（当前资产持仓快照）
+- [ ] dex_positions 添加 `realized_pnl`, `settled_funding` 字段
+- [ ] 添加索引 `dex_fills_perpetual_timestamp_idx`
+
+### 9.4 中优先级（完善功能）
+
+- [ ] 实现 `candleSnapshot` K 线数据端点
+- [ ] 实现 `spotClearinghouseState` 现货余额端点
+- [ ] dex_fills 添加 builder_fee、affiliate_fee 字段
