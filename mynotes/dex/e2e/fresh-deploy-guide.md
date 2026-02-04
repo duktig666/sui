@@ -4,8 +4,8 @@
 
 ## psql
 ```sh
-# 清空表                                                                                      
-sudo docker exec dex-indexer-db psql -U dex -d dex_indexer -c "TRUNCATE TABLE dex_balances, dex_fills, dex_watermarks, watermarks CASCADE;"           
+# 清空表
+sudo docker exec dex-indexer-db psql -U dex -d dex_indexer -c "TRUNCATE TABLE dex_balances, dex_fills, dex_positions, dex_position_updates, dex_transfers, dex_perpetuals, dex_watermarks, watermarks CASCADE;"           
                                                                                             
 # 交互式连接                                                                                  
 sudo docker exec -it dex-indexer-db psql -U dex -d dex_indexer                                
@@ -51,7 +51,7 @@ PostgreSQL 运行在 Docker 容器 `dex-indexer-db` 中，使用 `docker exec` �
 
 ```sh
 # 清空所有表
-sudo docker exec dex-indexer-db psql -U dex -d dex_indexer -c "TRUNCATE TABLE dex_balances, dex_fills, dex_watermarks, watermarks CASCADE;"
+sudo docker exec dex-indexer-db psql -U dex -d dex_indexer -c "TRUNCATE TABLE dex_balances, dex_fills, dex_positions, dex_position_updates, dex_transfers, dex_perpetuals, dex_watermarks, watermarks CASCADE;"
 ```
 
 **交互式连接数据库：**
@@ -121,9 +121,10 @@ cargo run -p dex-node-test --example fill_and_verify -- --fullnode-url http://12
 ### 查询 API 健康状态
 
 ```sh
+# 使用 user (账户地址) 参数查询，可选 subaccountNumber 过滤特定子账户
 curl -s http://127.0.0.1:3000/info -X POST \
   -H "Content-Type: application/json" \
-  -d '{"type": "userBalances", "subaccount":"<SUBACCOUNT_ID>", "limit": 10}' | jq
+  -d '{"type": "userBalances", "user":"<USER_ADDRESS>", "limit": 10}' | jq
 ```
 
 ### 检查 Indexer 同步进度
@@ -156,7 +157,7 @@ rm -rf ~/.sui/sui_config/consensus_db/
 
 echo "=== 清理数据库 ==="
 sudo docker exec dex-indexer-db psql -U dex -d dex_indexer -c \
-  "TRUNCATE TABLE dex_balances, dex_fills, dex_balance_events, watermarks CASCADE;" 2>/dev/null || true
+  "TRUNCATE TABLE dex_balances, dex_fills, dex_positions, dex_position_updates, dex_transfers, dex_perpetuals, dex_watermarks, watermarks CASCADE;" 2>/dev/null || true
 
 echo "=== 初始化网络配置 ==="
 export SUI_CHAIN_DIR="$PWD/local-network-config"
@@ -230,7 +231,9 @@ sudo docker exec dex-indexer-db psql -U dex -d dex_indexer -c "SELECT * FROM dex
 
 通过 DEX API 验证索引数据可被正确查询。
 
-> **注意**：`<SUBACCOUNT_ID>` 需要替换为示例程序输出中的实际子账户 ID（如 `0x1234...`）
+> **注意**：
+> - `<USER_ADDRESS>` 需要替换为示例程序输出中的账户地址（如 `0x1234...`，66字符）
+> - `subaccountNumber` 是可选参数，用于过滤特定子账户
 
 ### perpetual_and_verify 验证
 
@@ -250,31 +253,36 @@ curl -s http://127.0.0.1:3000/info -X POST \
   -d '{"type": "recentFills", "perpetualId": 0, "limit": 10}' | jq
 
 # 查询用户持仓和保证金（验证 PositionUpdateEvent）
+# 查询所有子账户
 curl -s http://127.0.0.1:3000/info -X POST \
   -H "Content-Type: application/json" \
-  -d '{"type": "clearinghouseState", "subaccount": "<SUBACCOUNT_ID>"}' | jq
+  -d '{"type": "clearinghouseState", "user": "<USER_ADDRESS>"}' | jq
+# 查询特定子账户
+curl -s http://127.0.0.1:3000/info -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"type": "clearinghouseState", "user": "<USER_ADDRESS>", "subaccountNumber": 0}' | jq
 
 # 查询用户成交历史
 curl -s http://127.0.0.1:3000/info -X POST \
   -H "Content-Type: application/json" \
-  -d '{"type": "userFills", "subaccount": "<SUBACCOUNT_ID>", "limit": 10}' | jq
+  -d '{"type": "userFills", "user": "<USER_ADDRESS>", "limit": 10}' | jq
 
 # 查询用户余额变化（验证 BalanceUpdateEvent）
 curl -s http://127.0.0.1:3000/info -X POST \
   -H "Content-Type: application/json" \
-  -d '{"type": "userBalances", "subaccount": "<SUBACCOUNT_ID>", "limit": 10}' | jq
+  -d '{"type": "userBalances", "user": "<USER_ADDRESS>", "limit": 10}' | jq
 ```
 
 ### API 支持的查询类型
 
-| 类型 | 说明 | 必需参数 |
-|------|------|----------|
-| `meta` | 市场元数据 | 无 |
-| `recentFills` | 市场最近成交 | `perpetualId` |
-| `clearinghouseState` | 用户持仓和保证金 | `subaccount` |
-| `userFills` | 用户成交历史 | `subaccount` |
-| `userBalances` | 用户余额变化 | `subaccount` |
-| `userTransfers` | 用户转账历史 | `subaccount` |
+| 类型 | 说明 | 必需参数 | 可选参数 |
+|------|------|----------|----------|
+| `meta` | 市场元数据 | 无 | - |
+| `recentFills` | 市场最近成交 | `perpetualId` | `limit` |
+| `clearinghouseState` | 用户持仓和保证金 | `user` | `subaccountNumber` |
+| `userFills` | 用户成交历史 | `user` | `subaccountNumber`, `perpetualId`, `startTime`, `endTime`, `limit` |
+| `userBalances` | 用户余额变化 | `user` | `subaccountNumber`, `startTime`, `endTime`, `limit` |
+| `userTransfers` | 用户转账历史 | `user` | `subaccountNumber`, `startTime`, `endTime`, `limit` |
 
 ## 十、事件对应关系
 
@@ -301,6 +309,6 @@ curl -s http://127.0.0.1:3000/info -X POST \
 
 ### API 返回空结果
 
-1. 确认 subaccount ID 正确
+1. 确认 user 地址正确（0x 前缀 + 64位 hex = 66 字符）
 2. 检查 API 是否连接到正确的数据库
 3. 验证数据库中确实有数据
