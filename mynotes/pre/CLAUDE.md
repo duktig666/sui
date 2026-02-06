@@ -9,4 +9,10 @@
 |----|------|---|-------|------|
 | #1720 | 2:13 AM | ⚖️ | Refactor Database Schema to Split Subaccount into Separate Fields | ~381 |
 | #1701 | 1:53 AM | 🔵 | Order Placement Succeeds But User Balance Query Returns Empty | ~373 |
+
+### Feb 5, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #2336 | 8:11 AM | 🔵 | DEX Indexer Development History and Evolution Documented | ~565 |
 </claude-mem-context>

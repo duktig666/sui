@@ -20,6 +20,7 @@
 
 | 分类 | 事件 | 用途 |
 |------|------|------|
+| **订单簿快照** | **OrderbookSnapshotEvent** | **链上订单簿全量推送（250ms）** |
 | 订单事件 | OrderPlacedEventV1, OrderRemovedEventV1 | 订单簿维护 |
 | 成交事件 | FillEventV1 | 成交记录、K 线聚合 |
 | 持仓事件 | PositionUpdateEventV1 | 持仓变化通知 |
@@ -31,6 +32,114 @@
 ---
 
 ## 2. 新增事件定义
+
+### 2.0 OrderbookSnapshotEvent（核心新增 2026-02-05）
+
+**用途**：链上订单簿全量快照推送，每 250ms 发射一次。dex-realtime 直接使用此快照，无需本地构建订单簿。
+
+**文件位置**：`sui-types/src/dex_events.rs`
+
+```rust
+/// 订单簿快照事件
+///
+/// 每 ~250ms 发射一次，提供链上订单簿的完整状态。
+/// 设计理由（2026-02-05）：
+/// - 简化 dex-realtime：无需本地构建/维护订单簿
+/// - 保证一致性：链上是权威数据源
+/// - 简化启动恢复：等待下一个快照即可
+/// - 类似 Hyperliquid 的全量推送模式
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct OrderbookSnapshotEvent {
+    /// 永续合约 ID
+    pub perpetual_id: u32,
+
+    /// 快照序列号（单调递增）
+    pub sequence_number: u64,
+
+    /// 生成快照时的 Checkpoint 序列号
+    pub checkpoint_sequence: u64,
+
+    /// 时间戳（毫秒）
+    pub timestamp_ms: u64,
+
+    /// 买盘价格档位（按价格降序 - 最优买价在前）
+    pub bids: Vec<PriceLevelSnapshot>,
+
+    /// 卖盘价格档位（按价格升序 - 最优卖价在前）
+    pub asks: Vec<PriceLevelSnapshot>,
+
+    /// 最优买价（快速访问）
+    pub best_bid: Option<u64>,
+
+    /// 最优卖价（快速访问）
+    pub best_ask: Option<u64>,
+
+    /// 订单簿统计信息
+    pub stats: OrderbookStats,
+}
+
+/// 价格档位快照
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PriceLevelSnapshot {
+    /// 价格（subticks）
+    pub price: u64,
+
+    /// 该价格档位的总数量
+    pub total_size: u64,
+
+    /// 该价格档位的订单数量
+    pub order_count: u32,
+}
+
+/// 订单簿统计信息
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct OrderbookStats {
+    /// 买单总数
+    pub bid_count: u32,
+
+    /// 卖单总数
+    pub ask_count: u32,
+
+    /// 买盘总量
+    pub total_bid_size: u64,
+
+    /// 卖盘总量
+    pub total_ask_size: u64,
+
+    /// 中间价（最优买卖价平均值）
+    pub mid_price: Option<u64>,
+
+    /// 价差（最优卖价 - 最优买价）
+    pub spread: Option<u64>,
+}
+```
+
+**字段说明**：
+
+| 字段 | 类型 | 说明 | 示例值 |
+|------|------|------|--------|
+| perpetual_id | u32 | 永续合约 ID | 0 (BTC-USD) |
+| sequence_number | u64 | 快照序列号 | 12345 |
+| checkpoint_sequence | u64 | Checkpoint 序列号 | 99999 |
+| timestamp_ms | u64 | 时间戳 | 1707000000000 |
+| bids | Vec<PriceLevelSnapshot> | 买盘（最多 100 档） | [...] |
+| asks | Vec<PriceLevelSnapshot> | 卖盘（最多 100 档） | [...] |
+| best_bid | Option<u64> | 最优买价 | Some(97000) |
+| best_ask | Option<u64> | 最优卖价 | Some(97100) |
+| stats | OrderbookStats | 统计信息 | {...} |
+
+**配置参数**：
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| ORDERBOOK_SNAPSHOT_INTERVAL_MS | 250 | 快照发射间隔 |
+| ORDERBOOK_SNAPSHOT_MAX_DEPTH | 100 | 最大档位数 |
+
+**数据量估算**：
+- 单个快照：~4-5 KB（100 档 × 2 边）
+- 每秒带宽（单市场）：~16-20 KB/s
+
+---
 
 ### 2.1 OrderPlacedEventV1
 
@@ -466,19 +575,22 @@ pub struct PerpetualCreatedEventV1 {
 
 | 事件 | 发射函数 | 文件 | 触发条件 |
 |------|----------|------|----------|
-| OrderPlacedEventV1 | execute_place_order() | sui-execution/src/dex.rs | 订单进入订单簿 |
-| OrderRemovedEventV1 | execute_place_order() | sui-execution/src/dex.rs | 订单完全成交 |
-| OrderRemovedEventV1 | execute_cancel_order() | sui-execution/src/dex.rs | 用户取消订单 |
-| OrderRemovedEventV1 | execute_liquidate() | sui-execution/src/dex.rs | 清算移除订单 |
-| FillEventV1 | execute_place_order() | sui-execution/src/dex.rs | 订单匹配成交 |
-| PositionUpdateEventV1 | execute_place_order() | sui-execution/src/dex.rs | 成交后持仓变化 |
-| PositionUpdateEventV1 | execute_liquidate() | sui-execution/src/dex.rs | 清算后持仓变化 |
-| LiquidationEventV1 | execute_liquidate() | sui-execution/src/dex.rs | 清算执行 |
-| BalanceUpdateEventV1 | execute_deposit() | sui-execution/src/dex.rs | 充值 |
-| BalanceUpdateEventV1 | execute_withdraw() | sui-execution/src/dex.rs | 提现 |
-| TransferEventV1 | execute_transfer() | sui-execution/src/dex.rs | 账户间转账 |
-| FundingSettlementEventV1 | execute_settle_funding() | sui-execution/src/dex.rs | 资金费结算 |
-| PerpetualCreatedEventV1 | execute_create_perpetual() | sui-execution/src/dex.rs | 创建永续合约 |
+| **OrderbookSnapshotEvent** | **execute_place_order()** | **sui-execution/src/dex/commands/order.rs** | **交易触发 + 距上次快照 ≥250ms** |
+| **OrderbookSnapshotEvent** | **execute_cancel_order()** | **sui-execution/src/dex/commands/order.rs** | **交易触发 + 距上次快照 ≥250ms** |
+| **OrderbookSnapshotEvent** | **execute_cancel_all_orders()** | **sui-execution/src/dex/commands/order.rs** | **交易触发 + 距上次快照 ≥250ms** |
+| OrderPlacedEventV1 | execute_place_order() | sui-execution/src/dex/commands/order.rs | 订单进入订单簿 |
+| OrderRemovedEventV1 | execute_place_order() | sui-execution/src/dex/commands/order.rs | 订单完全成交 |
+| OrderRemovedEventV1 | execute_cancel_order() | sui-execution/src/dex/commands/order.rs | 用户取消订单 |
+| OrderRemovedEventV1 | execute_liquidate() | sui-execution/src/dex/commands/order.rs | 清算移除订单 |
+| FillEventV1 | execute_place_order() | sui-execution/src/dex/commands/order.rs | 订单匹配成交 |
+| PositionUpdateEventV1 | execute_place_order() | sui-execution/src/dex/commands/order.rs | 成交后持仓变化 |
+| PositionUpdateEventV1 | execute_liquidate() | sui-execution/src/dex/commands/order.rs | 清算后持仓变化 |
+| LiquidationEventV1 | execute_liquidate() | sui-execution/src/dex/commands/order.rs | 清算执行 |
+| BalanceUpdateEventV1 | execute_deposit() | sui-execution/src/dex/commands/account.rs | 充值 |
+| BalanceUpdateEventV1 | execute_withdraw() | sui-execution/src/dex/commands/account.rs | 提现 |
+| TransferEventV1 | execute_transfer() | sui-execution/src/dex/commands/account.rs | 账户间转账 |
+| FundingSettlementEventV1 | execute_settle_funding() | sui-execution/src/dex/commands/market.rs | 资金费结算 |
+| PerpetualCreatedEventV1 | execute_create_perpetual() | sui-execution/src/dex/commands/market.rs | 创建永续合约 |
 
 ### 5.2 事件发射示例代码
 
@@ -624,12 +736,16 @@ impl DexEngine {
 
 | 事件 | dex-indexer | dex-realtime | 用途 |
 |------|:-----------:|:------------:|------|
+| **OrderbookSnapshotEvent** | **-** | **→ 直接写入 Redis Hash** | **订单簿全量快照** |
 | FillEventV1 | → dex_fills | → Redis Stream → K线聚合 | 成交记录 |
-| OrderPlacedEventV1 | → dex_orders | → 内存订单簿 → Redis | 订单状态 |
-| OrderRemovedEventV1 | → dex_orders (状态更新) | → 内存订单簿 → Redis | 订单移除 |
+| OrderPlacedEventV1 | → dex_orders | ~~→ 内存订单簿~~ (已简化) | 订单状态 |
+| OrderRemovedEventV1 | → dex_orders (状态更新) | ~~→ 内存订单簿~~ (已简化) | 订单移除 |
 | PositionUpdateEventV1 | → dex_positions | → Redis Stream | 持仓变化 |
 | LiquidationEventV1 | → dex_liquidations | → Redis Stream | 清算通知 |
 | BalanceUpdateEventV1 | → dex_balances | - | 余额变化 |
 | TransferEventV1 | → dex_transfers | - | 转账记录 |
 | FundingSettlementEventV1 | → dex_funding | → Redis Stream | 资金费 |
 | PerpetualCreatedEventV1 | → dex_perpetuals | - | 市场配置 |
+
+> **注意**：采用链上快照推送方案后，dex-realtime 不再需要维护内存订单簿。
+> OrderPlacedEventV1 和 OrderRemovedEventV1 仍然保留用于 dex-indexer 持久化和用户订单状态跟踪。

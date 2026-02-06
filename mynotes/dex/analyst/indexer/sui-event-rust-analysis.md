@@ -73,7 +73,7 @@
 
 #### Native emit 函数
 
-> 源码: [`sui-execution/latest/sui-move-natives/src/event.rs:43-54`](../../../sui-execution/latest/sui-move-natives/src/event.rs)
+> 源码: [`sui-execution/latest/sui-move-natives/src/event.rs:43-54`](../../../../sui-execution/latest/sui-move-natives/src/event.rs)
 
 ```rust
 pub fn emit(
@@ -97,7 +97,7 @@ pub fn emit(
 
 #### ObjectRuntime 事件存储
 
-> 源码: [`sui-execution/latest/sui-move-natives/src/object_runtime/mod.rs:359-365`](../../../sui-execution/latest/sui-move-natives/src/object_runtime/mod.rs)
+> 源码: [`sui-execution/latest/sui-move-natives/src/object_runtime/mod.rs:359-365`](../../../../sui-execution/latest/sui-move-natives/src/object_runtime/mod.rs)
 
 ```rust
 pub fn emit_event(&mut self, tag: StructTag, event: Value) -> PartialVMResult<()> {
@@ -111,7 +111,7 @@ pub fn emit_event(&mut self, tag: StructTag, event: Value) -> PartialVMResult<()
 
 #### Event 数据结构
 
-> 源码: [`crates/sui-types/src/event.rs:106-130`](../../../crates/sui-types/src/event.rs)
+> 源码: [`crates/sui-types/src/event.rs:106-130`](../../../../crates/sui-types/src/event.rs)
 
 ```rust
 pub struct Event {

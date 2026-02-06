@@ -1460,6 +1460,7 @@ impl CheckpointBuilder {
 
         self.write_checkpoints(last_details.checkpoint_height, new_checkpoints)
             .await?;
+
         info!(
             "Made new checkpoint {} from pending checkpoint {}",
             new_ckpt_str, pending_ckpt_str

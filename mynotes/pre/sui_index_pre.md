@@ -57,6 +57,11 @@ DEX核心逻辑使用rust编写自定义引擎，而不是使用move合约开发
 如果任务中既有更新文档又有更新代码，根据情况更新文档的优先级大于更新代码。整理到dex/CLAUDE.md
 定义简洁的rust规范 考虑加入到Claude.md 中，等我review后再加入
 
+---
+dydx-indexer-analyst.md dydx的indexer索引设计参考 整理到dex/CLAUDE.md
+
+---
+如果是多个阶段的连续性任务，每个阶段完成后进行总结，然后给我下一步或者下一阶段的实施建议。整理到dex/CLAUDE.md
 
 ## 多Claude code 的Git问题
 多Claude code同时编写一个git仓库，可能遇到git冲突或者编译问题。 Claude的superpower或者git的worktree是否有解决的办法，给出最佳实践，并输出到一个文件。
@@ -264,161 +269,6 @@ dex-node-test 是之前写的测试，目的是通过真实的下单，发送给
 
 # dex-sui
 
-## 启动节点
-
-```sh
-# 清空所有表
-sudo docker exec dex-indexer-db psql -U dex -d dex_indexer -c "TRUNCATE TABLE dex_balances, dex_fills, dex_positions, dex_position_updates, dex_transfers, dex_perpetuals, dex_watermarks, watermarks CASCADE;" 
-# 1. 编译 sui 二进制
-cargo build -p sui -p dex-indexer -p dex-api -p dex-node-test  
-
-sudo rm -rf local-network-config/**
-rm -rf ~/.sui/sui_config/network.yaml
-rm -rf ~/.sui/sui_config/authorities_db/
-rm -rf ~/.sui/sui_config/consensus_db/
-
-sudo RUST_LOG=off,sui_node=info ./target/debug/sui start \
-   --with-faucet=0.0.0.0:9123 \
-   --fullnode-rpc-port 9001 \
-   --force-regenesis
-
-# 2. 初始化本地网络配置
-export SUI_CHAIN_DIR="$PWD/local-network-config"
-sudo ./target/debug/sui genesis \
-  --with-faucet \
-  --committee-size 1 \
-  --working-dir "$SUI_CHAIN_DIR" \
-  --force \
-  --epoch-duration-ms 30000
-  
-# 3. 启动本地验证者节点 (带水龙头)
-export SUI_CHAIN_DIR="$PWD/local-network-config"
-sudo RUST_LOG="off,sui_node=info" \
-  ./target/debug/sui start \
-    --network.config "$SUI_CHAIN_DIR" \
-    --with-faucet=0.0.0.0:9123 \
-    --fullnode-rpc-port 9001
-
-# 临时启动节点  
-RUST_LOG="off,sui_node=info" \
-  ./target/debug/sui start --with-faucet --force-regenesis --fullnode-rpc-port 9000
-  
-# dex-indexer 启动
-RUST_LOG=dex_indexer=info ./target/debug/dex-indexer --database-url postgres://dex:dex123@localhost:5432/dex_indexer --rpc-api-url http://127.0.0.1:9001 --first-checkpoint 0                                                                                     
-RUST_LOG=dex_indexer=info,sui_indexer_alt_framework::pipeline::logging=info ./target/debug/dex-indexer --database-url postgres://dex:dex123@localhost:5432/dex_indexer --rpc-api-url http://127.0.0.1:9001 --first-checkpoint 0                                                                                     
-
-# dex-api 启动
-./target/debug/dex-api --database-url postgres://dex:dex123@localhost:5432/dex_indexer --api-listen-address 0.0.0.0:3000   
-```
-## 启动顺序
-```text
-启动顺序:                                                                                               
-  终端: 1                                                                                                 
-  服务: Sui 节点                                                                                          
-  命令: sui start ...                                                                                     
-  类型: 长期运行                                                                                          
-  ────────────────────────────────────────                                                                
-  终端: 2                                                                                                 
-  服务: dex-indexer                                                                                       
-  命令: ./target/debug/dex-indexer --database-url ... --rpc-api-url http://127.0.0.1:9001                 
-  --first-checkpoint                                                                                      
-    0                                                                                                     
-  类型: 长期运行      
-  RUST_LOG=dex_indexer=debug,sui_indexer_alt_framework::pipeline::logging=info ./target/debug/dex-indexer --database-url postgres://dex:dex123@localhost:5432/dex_indexer --rpc-api-url http://127.0.0.1:9001 --first-checkpoint 0                                                                                     
-  ────────────────────────────────────────                                                                
-  终端: 3                                                                                                 
-  服务: dex-api                                                                                           
-  命令: ./target/debug/dex-api --database-url ... --api-listen-address 0.0.0.0:3000                       
-  类型: 长期运行          
-  ./target/debug/dex-api --database-url postgres://dex:dex123@localhost:5432/dex_indexer --api-listen-address 0.0.0.0:3000   
-  ────────────────────────────────────────                                                                
-  终端: 4                                                                                                 
-  服务: dex-node-test                                                                                     
-  命令: cargo run -p dex-node-test --example place_order -- --fullnode-url http://127.0.0.1:9001          
-  类型: 按需执行                                                                                          
-  前提条件:                                                                                               
-  - PostgreSQL 需要先启动（docker-compose up -d）                                                         
-  - Sui 节点需要先启动并稳定运行                                                                          
-  - dex-indexer 启动后会开始处理 checkpoint
-  
-  ----------------------------------------
-```
-
-## 测试
-```shell
-# dex-indexer 单元测试
-SUI_SKIP_SIMTESTS=1 cargo nextest run -p dex-indexer
-
-# dex-api 单元测试
-SUI_SKIP_SIMTESTS=1 cargo nextest run -p dex-api
-
-# dex-indexer-e2e-test 
-## 完整 E2E 测试（需要 PostgreSQL 运行）                                                
-cargo nextest run -p dex-indexer-e2e-test                                              
-                                                                                         
-## 或运行特定测试文件                                                                   
-cargo test -p dex-indexer-e2e-test --test balance_tests                                
-cargo test -p dex-indexer-e2e-test --test perpetual_tests                              
-cargo test -p dex-indexer-e2e-test --test api_balance_tests                            
-cargo test -p dex-indexer-e2e-test --test api_perpetual_tests                          
-cargo test -p dex-indexer-e2e-test --test subaccount_tests
-
-# dex-node-test
-# 注意：API 参数已更新，使用 "user" (账户地址) 替代 "subaccount"
-# 可选参数 "subaccountNumber" 用于过滤特定子账户
-
-cargo run -p dex-node-test --example place_order -- --fullnode-url http://127.0.0.1:9001
-# 查询用户余额（所有子账户）
-curl -s http://127.0.0.1:3000/info -X POST -H "Content-Type: application/json" \
-  -d '{"type": "userBalances", "user":"0x2c1369579a7209575b3b8509b50285c7de9e8ab17df47351ded87330e6485434", "limit": 10}' | jq
-# 查询特定子账户余额
-curl -s http://127.0.0.1:3000/info -X POST -H "Content-Type: application/json" \
-  -d '{"type": "userBalances", "user":"0x2c1369579a7209575b3b8509b50285c7de9e8ab17df47351ded87330e6485434", "subaccountNumber": 0, "limit": 10}' | jq
-
-cargo run -p dex-node-test --example fill_and_verify -- --fullnode-url http://127.0.0.1:9001
-curl -X POST http://127.0.0.1:3000/info \
-  -H "Content-Type: application/json" \
-  -d '{"type": "userFills", "user": "0x077983d967d89f62127799134b8af5c87d9e956769e7e44194d3bc536dcef490", "limit": 10}' | jq
-
-# 市场创建事件验证
-cargo run -p dex-node-test --example perpetual_and_verify -- --fullnode-url http://127.0.0.1:9001
-
-# 持仓变化事件验证
-cargo run -p dex-node-test --example position_and_verify -- --fullnode-url http://127.0.0.1:9001
-
-perpetual_and_verify API 验证
-
-  # 查询市场元数据（验证 PerpetualCreatedEvent）
-  curl -s http://127.0.0.1:3000/info -X POST -H "Content-Type: application/json" -d '{"type": "meta"}' | jq
-
-  position_and_verify API 验证
-
-  # 1. 查询最近成交（验证 FillEvent）
-  curl -s http://127.0.0.1:3000/info -X POST \
-    -H "Content-Type: application/json" \
-    -d '{"type": "recentFills", "perpetualId": 0, "limit": 10}' | jq
-
-  # 2. 查询用户持仓和保证金（验证 PositionUpdateEvent）
-  # 替换 <USER_ADDRESS> 为示例输出中的账户地址（0x前缀）
-  curl -s http://127.0.0.1:3000/info -X POST \
-    -H "Content-Type: application/json" \
-    -d '{"type": "clearinghouseState", "user": "0x077983d967d89f62127799134b8af5c87d9e956769e7e44194d3bc536dcef490"}' | jq
-  # 查询特定子账户的持仓
-  curl -s http://127.0.0.1:3000/info -X POST \
-    -H "Content-Type: application/json" \
-    -d '{"type": "clearinghouseState", "user": "0x077983d967d89f62127799134b8af5c87d9e956769e7e44194d3bc536dcef490", "subaccountNumber": 0}' | jq
-
-  # 3. 查询用户成交历史
-  curl -s http://127.0.0.1:3000/info -X POST \
-    -H "Content-Type: application/json" \
-    -d '{"type": "userFills", "user": "0x077983d967d89f62127799134b8af5c87d9e956769e7e44194d3bc536dcef490", "limit": 10}' | jq
-
-  # 4. 查询用户余额变化（验证 BalanceUpdateEvent）
-  curl -s http://127.0.0.1:3000/info -X POST \
-    -H "Content-Type: application/json" \
-    -d '{"type": "userBalances", "user": "0x077983d967d89f62127799134b8af5c87d9e956769e7e44194d3bc536dcef490", "limit": 10}' | jq 
-```
-
 ## 分析
 分析dex-sui，dex引擎是自定义开发，现在是否可以启动节点，发送对应的交易？ 结论输出到sui/mynotes/dex-sui/analysis的一个新文件
 
@@ -513,7 +363,74 @@ dex-realtime 缺失内容问题：
 5. 节点订阅 dydx是有专门索引的全节点发出事件，那么我们推荐怎么做？
 6. Redis Stream 发布 的问题 都可以先参看dydx是怎么做的？是否有问题或者优化 再让我来决策
 7. dex-ws  订阅频道管理 Redis 消费  缺失内容 也先参看dydx。另外分析下 当前的设计和dydx是否有重大差异，是否有需要改进的
-根据上述缺失内容，我提出了一些新的问题和建议，在进行分析和梳理，将问题缺失项和结论，或者需要我再做决策的，输出到sui/mynotes/draft/indexer/tech/phase2_realtime下的一个新文件
+根据上述缺失内容，我提出了一些新的问题和建议，在进行分析和梳理，将问题缺失项和结论，或者需要我再做决策的，输出到sui/mynotes/dex/analyst/phase2_realtime下的一个新文件
 另外 dex-realtime 需要处理的事件以及设计在dex-sui/docs/indexer/tech/dex-indexer-tech-latest.md文档下并不完善，再进行方案版本文件过度的时候有大量方案设计缺失，
-可以参看sui/mynotes/draft/indexer/tech下的文件进行补充完善，尤其是dex-indexer-tech-v4.md，但是之前废弃的方案和设计不要重复引入。尤其是双通道各自需要处理的事件，现在并不明确。
+可以参看sui/mynotes/dex/analyst/phase2_realtime下的文件进行补充完善，尤其是dex-indexer-tech-v4.md，但是之前废弃的方案和设计不要重复引入。尤其是双通道各自需要处理的事件，现在并不明确。
 如果有需要我进行决策的及时给我选项，让我选择。
+
+---
+三个关键问题：
+1. 多用户并发下单 - 大量用户同时下单，保证实时数据推送的正确性
+2. 多 realtime 实例部署 - 高可用部署，避免单点故障
+3. Sui 节点连接 - 连接单个节点是否能获取全量事件？
+4. dex-realtime 连接单节点在没有CheckPoint前，应该并不知道别节点的事件，然后dex-realtime才是解决dex高频信息如订单薄，最近成交等数据的关键，这点是否会有重大影响。
+
+---
+全面审查indexer现在的架构设计、技术方案、实施计划。看有什么地方需要优化，未决策问题还有哪些？先不要进入开发                            
+
+主文档节点连接策略 使用 Validator+索引节点
+当前阶段延迟目标500ms左右
+Validator 同步方案 内网RPC
+多实例去重方案 幂等发布
+补充实现细节
+DEX Engine 乐观事件 暂不实现
+
+相应改动也需要同步改动主文件
+
+---
+针对链下订单薄推送的问题，现在有两个方案
+1. 保持当前方案，链上发出事件，dealtime服务实时构建订单薄
+2. 链上内存订单薄，250ms推送一次给链下服务，每次推送完整订单簿。避免链下重建订单薄的繁琐流程
+针对这两种方案进行分析
+
+---
+现在indexer dealtime实现中sui_subscribeEvent在验证者节点的共识之后，CheckPoint之前就可以把事件推送出去，存在了一定的疑问，可以通过怎样的方式进行一下验证。
+
+---
+修改源码启用 Validator RPC（需要注释掉那3行检查代码）
+使用方案1 但是验证成功后要及时提醒我撤销启用 Validator RPC的修改 
+
+---
+redis的缓存有哪些服务维护，机制是什么？整体架构是怎样的？redis要写入哪些事件或数据？
+先更新文档不要修改代码，代码等我文档review后再执行
+现在的技术方案、架构、实施计划在sui/mynotes/draft/indexer合适的文件夹下做一下备份，文件名记得有版本后缀
+现在Phase2整体的实施计划是怎样的？
+
+---
+当前方案已经足够开始开发。上述补充内容可以在开发过程中逐步完善：
+1. 可立即开始：dex-indexer Redis 发布功能开发
+2. 并行准备：部署和运维方案（可以边开发边准备）
+3. 开发中完善：错误处理策略（遇到问题时记录）
+4. 上线前补充：性能测试、安全审查
+
+---
+
+phase2阶段我该如何测试和验证，给我一个测试列表。并且我更关注运行节点、indexer、api 然后真实测试。
+dex-node-test 是否需要给我增加更多的真实交易验证的测试用例
+评估测试命令 dex-sui/docs/indexer/test/index-test.md 是否需要修改和完善
+phase2_realtime 生成一个详细的测试指南
+
+# DEX API
+
+
+# DEX Indexer Test Deploy
+dex-sui/docker/dex-indexer/docker-compose.yml 完善redis的compose配置，psql和redis的配置修改为当前目录下新建文件夹的映射存储。
+
+# DEX Verify Demo
+dex indexer 和 api 已经完成阶段性的开发，想要一个demo ui来进行完整性的功能测试，以及方便演示。
+我又几个思路：
+1. 开发一个命令行ui工具，dex核心功能可以在终端展现。
+2. dex-ui项目的目的是复刻Based UI，与HyperLiquid API打通，提前完善DEX前端，等正在开发DEX完善后对接。 可以考虑在其基础上新建分支开发验证，但是其比较复杂，是否可以快速完成测试验证，需要分析。
+3. 新建一个项目，快速开发一个前端demo用来验证。
+4. 新的方式你可以帮我补充
+方案推荐
