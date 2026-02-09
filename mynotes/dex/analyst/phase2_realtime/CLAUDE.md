@@ -8,4 +8,10 @@
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
 | #2812 | 7:10 AM | ✅ | Added sudo prefix to all docker compose commands in testing guide | ~305 |
+
+### Feb 9, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #3329 | 2:43 AM | 🔵 | Phase 2 implementation assessment documents feature coverage against Hyperliquid API baseline | ~727 |
 </claude-mem-context>

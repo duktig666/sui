@@ -421,6 +421,7 @@ dex-node-test 是否需要给我增加更多的真实交易验证的测试用例
 phase2_realtime 生成一个详细的测试指南
 
 # DEX API
+对标Hyperliquid，梳理现在indexer和API已实现的功能，还缺少的功能（如果是因为dex没有实现而没实现的标记出来）。 总结到phase2_realtime文件夹下
 
 
 # DEX Indexer Test Deploy
@@ -434,3 +435,10 @@ dex indexer 和 api 已经完成阶段性的开发，想要一个demo ui来进�
 3. 新建一个项目，快速开发一个前端demo用来验证。
 4. 新的方式你可以帮我补充
 方案推荐
+
+---
+indexer k线 成交 时间的字段是否有问题 包括dex-test-panel的展示
+
+---
+按照dex-sui/docs/indexer/hyperliquid下，整理的hyperliquid api和ws规范，将我们现在实现的api和ws规范整理到dex-sui/docs/indexer/api_docs文件夹下。
+api的介绍，参数和响应的返回值，都要有一定的说明。 也定义新的环境变量。
