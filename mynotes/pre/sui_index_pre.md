@@ -63,6 +63,9 @@ dydx-indexer-analyst.md dydx的indexer索引设计参考 整理到dex/CLAUDE.md
 ---
 如果是多个阶段的连续性任务，每个阶段完成后进行总结，然后给我下一步或者下一阶段的实施建议。整理到dex/CLAUDE.md
 
+---
+indexer相关测试的服务，docker compose的命令可以用dex-sui/docker/dex-dev的make命令快速操作，整理到dex-sui/CLAUDE.md
+
 ## 多Claude code 的Git问题
 多Claude code同时编写一个git仓库，可能遇到git冲突或者编译问题。 Claude的superpower或者git的worktree是否有解决的办法，给出最佳实践，并输出到一个文件。
 https://github.com/obra/superpowers 这是superpower的代码仓库
@@ -442,3 +445,101 @@ indexer k线 成交 时间的字段是否有问题 包括dex-test-panel的展示
 ---
 按照dex-sui/docs/indexer/hyperliquid下，整理的hyperliquid api和ws规范，将我们现在实现的api和ws规范整理到dex-sui/docs/indexer/api_docs文件夹下。
 api的介绍，参数和响应的返回值，都要有一定的说明。 也定义新的环境变量。
+
+---
+dex-indexer 下定义了redis和psql的docker compose，在用一个新的docker compose文件定义 节点、indexer、api、dex-test-panel 的启动方式 为了方便随时编译测试验证 docker从本地快速构建。
+并定义 README.md 文件，写个启动指南。
+
+---
+dex-test-panel Faucet和Deposit页面可以多内置10个地址。Trading View显示当前连接的地址以及余额，还有的当前仓位。
+dex-test-panel 的Candle Snapshot 和 Market Stats 页面展示什么数据？调用什么api？dex-sui/docs/indexer/test/index-test.md中有对应的测试吗？
+dex-test-panel 的Trading View的K线、订单簿、最近成交 改为实时订阅，而不是需要手动点加载
+
+---
+dex-test-panel的dex-test-panel页面是不是可以合并到Faucet Deposit页面，全局右上角是不是可以加metamask的连接状态和断连（记得展示evm对应的sui地址）
+有一个全局的按钮可以控制使用sdk地址和metamask地址，而不是在trading view页面通过按钮切换sdk还是exchange api的方式。
+
+---
+dex-test-panel Trading View页面的当前仓位，每个仓位添加平仓的按钮实现平仓操作，Open orders未撮合订单增加操作按钮 实现移除订单操作。
+
+# DEX Exchange API
+之前三个阶段都已基本完成，遗留问题后续再说，现在进行第四阶段的开发，核心目标：实现基于Hyperliquid的exchange 写交易API。
+exchange api的设计与Hyperliquid一致，交易参数+nonce+eip712签名，dex-sui/docs/eip712-signature-design.md 这个文档是签名的方案。
+eip721构建sui交易的方法 参看：place_order_with_eip712 verify_eip712_signature，也可以封装更加通用的方法（place_order_with_eip712这个方法是不是只针对于下单）
+前段或后端test流程：eip712签名 → dex-api → 调用eip721构建sui交易的方法 → node
+要求如下：
+1. API 尽量对标Hyperliquid（尤其是字段定义） 参看dex-sui/docs/indexer/hyperliquid，如果有不对应的可以扩展，例如subaccount机制
+2. nonce使用时间戳 写交易注意时间戳
+3. 新建psql的表，主要用来索引存储一些sui对象的版本信息，例如这次要存储 marketVersion，创建市场之前的事件所以一个marketVersion字段，需要索引查询，下单等交易需要用到。表的设计可以考虑扩展性，后续可能存储其他sui对象的version。
+4. subaccountVersion 需要定义一个常量或者用配置的形式，值不变，某些交易需要用到。
+5. dex-sui/crates/dex-node-test/example2 使用exchange api的方式，开发真实节点发送交易的测试用例（流程参看上述 前段或后端test流程）
+6. dex-test-panel 的tradeView页面给个切换按钮，可以选择使用之前sui sdk的方式发送写交易；也可以用新的方式 exchange api的方式（新开发），exchange api的方式确保使用eip712的路径
+7. dex-test-panel 新写一个页面，可以调用metamask钱包进行下单操作。
+
+phase4的引入 dex-sui/docs/indexer/test/index-test.md 是否要完善。 将exchange          
+api仿照dex-sui/docs/indexer/hyperliquid的格式更新的到dex-sui/docs/indexer/api_docs/http。
+并审查dex-sui/docs/indexer/api_docs api ws event是否完善。
+---
+dex-test-panel metamask页面现在只有下单表单，Time in Force选项现在dex不支持移除，增加获取faucet的功能。
+
+---
+按照dex-sui/docs/indexer/hyperliquid下的规范和格式，整理exchange api整理到dex-sui/docs/indexer/api_docs文件夹下。
+api的介绍，参数和响应的返回值，都要有一定的说明。
+
+---
+查询时地址的问题
+现阶段先让前端进行签名方式，然后推导出sui地址，这块的方案后续需要详细讨论最终确定
+
+---
+evm address:0x892e7c8c5e716e17891abf9395a0de1f2fc84786 对应sui地址: 0x47fe36b66ecbced05ecf01c8f233a7e2f139e26d53457f924b9c84f3f49faa1f               
+刚才有下单和成交，验证下是否正确
+
+---
+当前合并新增功能如下：
+1. 币对名
+2. usdc原生代币
+3. 平仓。
+
+phase5目标：
+1. meta接口即api要返回合约的币对名，合约币对是 基础货币-USDC
+2. usdc原生代币的充提
+3. 平仓。 exchange api 对标Hyperliquid实现真正平仓api 
+实现上述目标也要更新对应单元测试、e2e测试（包括服务dex-indexer-e2e-test）、真实节点发送交易的测试（服务dex-node-test）
+交易流程可能需要改变，因为要获取USDC
+
+另外dex-test-panel也 要支持这次变更和目标：
+1. Trading View 页面展示币对名，余额相关要展示对应的单位
+2. Faucet Deposit 页面要支持USDC
+3. Trading View 实现用户 当前仓位（要支持平仓逻辑）、当前订单、历史订单、当前资产等的展示。
+4. 基于这次和目标的扩展和完善
+
+先写计划将计划文档输出到 sui/mynotes/dex/analyst/phase5 下，然后确认方案后再实施。
+
+epoch 重配置期间提交了交易，这个问题经常遇到 可以怎么解决？
+
+0x47fe36b66ecbced05ecf01c8f233a7e2f139e26d53457f924b9c84f3f49faa1f 下买单，                  
+0xe09694dde43ddb9d9e5fe980b19b3e7e35b3a39c2f6133b8bd2f9061723d7c1e 下卖单。                  
+帮我看下下单和撮合、indexer、api、ws等是否正常。 下单数量都为8
+
+---
+现在实现移除订单（撤销订单操作）和平仓，除了必要的单元测试和e2e测试外，并在dex-node-test中进行真实交易测试。      
+另外dex-test-panel的Trading View页面，positions 仓位展示中，每个仓位的按钮应该是平仓的按钮，而不是close按钮，调用的方法也不对。Open Orders展示的订单操作才应该是close按钮，实现撤销订单的操作。
+
+以及bug fix：
+1. Open Orders的订单，如果订单已履行，初始订单数量和已履行数量是否有问题？ 订单状态也有问题（重新考虑现在订单状态的设计问题 Open 部分成交 完全成交 部分成交已撤销 已撤销，以及后续扩展状态）
+2. 一个买单taker 一个卖单maker 部分成交后，maker的历史订单没有展示，排查问题 fix
+3. dex-test-panel的Trading View页面 展示的仓位，打开的订单，历史订单，最近成交订单 展示的内容可以展示更多有价值的内容
+
+---
+dex-test-panel 做出如下优化
+1. User DATA页面昨天加一个菜单，展示用户的历史订单
+2. Clearinghouse接口很早已经可以拿到仓位数据，但是Trading View页面的仓位数据需要很长时间才可以加载出来，是ws的问题？ 甚至taker的仓位显示出来比maker个还要慢很多。 这个问题不仅要fix，还要分析原因
+4. Trading View页面 不显示maker的订单历史
+5. Trading View页面 打开订单进行撤销 已签名，但是没有生效 {"status":"err","response":{"type":"error","data":{"error":"Cancel not yet implemented"}}}
+6. Trading View页面 平仓应该是新的交易类型吧，但是交易签名仍然是 PlaceOrder，排查 fix
+
+---
+A用户50000多仓10个 B用户50000空仓10个，AB成交各有一个仓位。B下50000多仓10个，A平仓，B的单子被吃掉。 但是AB的仓位都没有了，
+按理说B的仓位没有被平仓，应该还在，这是什么问题？ 成交后两个仓位共用一行数据吗？还是有其他问题
+
+Trading View页面 uPnL 计算的是什么？是否正确
