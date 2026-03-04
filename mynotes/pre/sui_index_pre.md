@@ -631,3 +631,37 @@ phase5其中一位工程师已经实现了 杠杆倍数、高级订单openhands 
 对应功能也在 dex-test-panel 进行完善。
 
 Keeper 启动仍需手动传环境变量。
+
+---
+phase5另一个工程师已经实现了充提和跨链桥的功能，技术文档参看：dex-sui/docs/bridge_design_v2.md
+充值调用evm链的智能合约发起，提现提供一个api调用节点发送交易完成。充值的usdc可以用任意的hoodi测试网的合约就行，稍后我可以提供，充提可以现在测试网hoodi完成。
+实现phase5和充值相关的功能设计，之前的部分规划参看sui/mynotes/dex/analyst/phase5 下，并写一份技术文档输出到 dex-sui/docs/indexer/tech
+
+docker/dex-dev 已经启动进行端到端验证 尤其是phase5解读那的功能 
+
+---
+P2 功能开发 — 实施计划中剩余的 P2 项：
+  - Liquidation 全链路（LiquidationEventV1 Handler）
+  - Funding 全链路（FundingSettlementEventV1 Handler）
+E2E 测试独立问题修复：
+  - API 查询 SubaccountId hex 编码格式不匹配（"Invalid address format"）
+  - Indexer latest_checkpoint() 未检查 dex_perpetuals 表导致超时
+
+当前状态
+
+所有基础设施和服务组件验证通过。由于 bridge-node 尚未运行，链上没有 deposit/withdraw
+交易，所以：
+- 所有数据表为空
+- Redis 流长度为 0
+- API 返回空数组
+
+下一步（bridge-node 启动后）
+
+当 bridge-node 运行后，可以进行完整的 E2E 数据流验证：
+1. Deposit 流: EVM deposit → bridge-node → Sui 链上事件 → indexer 处理 → PG + Redis →
+API 查询 / WebSocket 推送
+2. Withdrawal 流: 用户发起 withdraw → Sui 链上事件 → indexer（status=pending）→
+bridge-node 确认 → status 更新
+3. 数据一致性: 检查 PG 表数据与 Redis 流的一致性
+
+---
