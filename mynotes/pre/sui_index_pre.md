@@ -66,6 +66,11 @@ dydx-indexer-analyst.md dydx的indexer索引设计参考 整理到dex/CLAUDE.md
 ---
 indexer相关测试的服务，docker compose的命令可以用dex-sui/docker/dex-dev的make命令快速操作，整理到dex-sui/CLAUDE.md
 
+---
+dex-sui/docker/dev-dev 针对于开发环境，dex-sui/docker/dev-test 是测试联调环境，执行时注意现在服务多处环境。另外都提供了make指令，修改完代码注意使用合适的命令去重建服务，不确定的让我决策。 精简的整理到dex-sui/CLAUDE.md
+
+dex-sui/docs/indexer/service-ports.md 对应了dex-dev和dex-test 各个服务启动的端口 精简的整理到dex-sui/CLAUDE.md
+
 ## 多Claude code 的Git问题
 多Claude code同时编写一个git仓库，可能遇到git冲突或者编译问题。 Claude的superpower或者git的worktree是否有解决的办法，给出最佳实践，并输出到一个文件。
 https://github.com/obra/superpowers 这是superpower的代码仓库
@@ -665,3 +670,96 @@ bridge-node 确认 → status 更新
 3. 数据一致性: 检查 PG 表数据与 Redis 流的一致性
 
 ---
+phase5已经完成，dex-sui/docker/dex-dev 添加了bridge-node服务
+# bridge-state-id: "0x..."
+# bridge-state-initial-version: 1
+# global-accounts-id: "0x..."
+# global-accounts-initial-version: 1
+这几个参数可以参考keeper服务，先使用tx-gateway的/tx/setup 进行设置 保证bridge-node的docker服务可以启动。
+
+docker/dex-dev下 make setup-bridge可以为bridge设置需要必要的参数，keeper也是类似 提供一个make setup-keeper 设置并且启动相关的服务。在提供一个make setup命令，启动bridge、keeper相关，以及其他需要类似机制的服务。
+
+---
+phase5的另一位工程师已全面实现,docker/dex-dev 下有新服务bridge-node. docker/dex-dev 我刚刚make reset并且启动所需要的服务                                                                                                                                                                                dex-test-panel的tradingview下单附近可以实现真正的充值和提现功能,以及完善exchangeapi的提现api.                                                                                
+dex-sui/bridge/scripts/test-bridge.sh 是一个测试充提的脚本，可以作为一些参考.                                                                                                
+并审查phase5阶段实现杠杆倍数、高级订单、标记价格、资金费率、清算的订单和成交、充值和提现记录 功能适配,提供对应于Hyperliquid的api,如果还有功能缺失一并实现
+
+---
+dex-sui/bridge/evm参看这个文件夹，再sepolia部署一套新的bridge相关的智能合约，并进行验证，然后把部署的智能合约打印出来。
+export SEPOLIA_RPC_URL="https://sepolia.infura.io/v3/2eba501820ce490f8dd5117d9ddb374d"
+export ETHERSCAN_API_KEY="S26UJAU9KZ4AJ3Z46IIPV5B3SG88RNKPIQ"
+
+对照docker/dex-dev 的compose 在dex-test修改compose配置，bridge用最新的部署的合约去配置。
+另外dex-test需要启动3个sui-node，并且只有一个node是暴露grpc stream，并且给indexer api等去用的，另外两个不参与，只参与基本的验证者和dex的职责。
+等待我在dex-test启动所有服务。
+
+0x892e7c8c5e716e17891abf9395a0de1f2fc84786 0x47fe36b66ecbced05ecf01c8f233a7e2f139e26d53457f924b9c84f3f49faa1f
+
+---
+将真正的充值提现流程总结梳理到 dex-sui/docs/indexer/api_docs 下一个新文件，并区分dex-dev和dex-test环境所需要的一些合约，服务访问路径等。
+
+应当是这个BRIDGE_AUTHORITY_KEY配置错了 我现在重置链 应当就可以了 
+
+# dex-ui for sui-dex dev
+现在dex-sui的功能已经完善，indexer、api、ws、stream已经完成，api、ws对标Hyperliquid 文档在 dex-sui/docs/indexer/api_docs
+dex-ui现在是基于based的前端+Hyperliquid API/ws  进行了复刻，我们dex的api和ws对标Hyperliquid（main分支），我已经切好了新的git分支dex。现在dex-ui要替换Hyperliquid的api/ws，全面接入我们的dex。进行规划和实现，有问题及时向我提出和决策。
+有一些要求：
+1. 要完全使用api和ws，不要使用tx-gateway的功能（sdk的方式不要使用）。如果有功能缺失向我提出，充提要走真实的链上充提，而不是之前的模拟。
+2. web3钱包使用dex-ui现在集成的reown，可以调用很多第三方钱包
+3. 环境接入dex-test 接入的服务最好是可以配置化的
+4. dex-test-panel只是开发测试用的，现在开发对接的是dex-ui是真正暴露给用户的
+
+---
+dex-node 已经添加了资金费率的rpc，对于链下的indexer-api，对于实时展示资金费率有没有需要调整的 当然也要对标和结合Hyperliquid的api和ws。
+
+vault机制分析,如果vault启动后 并且/tx/setup后,是否还能控制自动下单                                
+  dex-sui/docs/indexer/vault-setup.md这个是vault的文档   
+
+---
+原来main分支的功能（based+Hyperliquid API）portfolio有一些功能， Assets、交易历史、充值历史、PnL Calendar 以及一些图表等，主要是查询。现在使用我们dex的api/ws 实现这些功能。
+
+dex-ui的开发中经常遇到环境问题 那么在dex-dev和dex-test的两套环境中现在也有讲dex-ui加入compose进去吧，各自连接各自的环境，注意端口问题。 然后现在的3000端口的方式先移除掉吧，注意make文件也维护下
+
+---
+❯ 结合当下dex实现的功能,dex-ui很多对标Hyperliquid的功能没实现 该怎么处理比较好 
+
+---
+evm:0x892e7c8C5E716e17891ABf9395a0de1f2fc84786 sui:0x47fe36b66ecbced05ecf01c8f233a7e2f139e26d53457f924b9c84f3f49faa1f hash:0x47fe36b66ecbced05ecf01c8f233a7e2f139e26d53457f924b9c84f3f49faa1f 这对地址我也刚deposit 10000usdc 交易
+
+evm:0x3357c09eCf74C281B6f9CCfAf4D894979349AC4B sui:0xe09694dde43ddb9d9e5fe980b19b3e7e35b3a39c2f6133b8bd2f9061723d7c1e 交易hash:0xb48868c34577363ff9c2869b1359a222af8997ab571bc8bfb1756c2adf3b8b83 这对地址我也刚deposit
+
+---
+{"action":{"type":"order","orders":[{"a":0,"b":false,"p":"6700","s":"100000000","r":false," 
+t":{"limit":{"tif":"Alo"}},"c":"0x41edd730"}],"grouping":"na"},"nonce":1773037497847,"deadline 
+":1773037557847,"signature":{"r":"0xbfeefb6f1e3066de1104f14e6e7756a3181f9dc992f3f59ee295baf34e 
+e7696d","s":"0x1926dfe650468c9eb64ad3627e2993cfc26740afdce0457a8876a9c0f0ea5335","v":28},"vaul 
+tAddress":null}   
+
+67000 0.01 下单 为什么是这个指 "p":"6700","s":"100000000"  是因为 BTC-USDC 精度问题吗 比如这个参数 atomic_resolution = -10 但是dydx是-9的原因吗？
+
+sudo curl -L  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && sudo chmod +x /usr/local/bin/cloudflared
+
+```
+nohup cloudflared tunnel --url http://localhost:9101 > /tmp/cf-ws.log 2>&1 &
+sleep 3 && grep "trycloudflare.com" /tmp/cf-ws.log 
+
+NEXT_PUBLIC_DEX_API_URL=https://xxx-api.trycloudflare.com
+NEXT_PUBLIC_DEX_WS_URL=wss://yyy-ws.trycloudflare.com/ws
+```
+
+https://dex-api.blastnova.xyz 带证书默认端口应该是443 现在需要代理到9101 支持dex-api 的api和ws的访问。 dex-test环境，可以考虑使用compose 起 nginx，单独make命令控制nginx，不用加入到reset等命令。
+
+curl -s http://15.235.230.59:9101/info -X POST -H "Content-Type: application/json" -d  '{"type":"meta"}'
+
+倾向于rust,然后环境我们可以使用dex-dev自动化测试前                                           
+可以人工或者脚本确定环境是否就绪.然后需要配置化连接这些服务. 再审查下dex-node-test下的真实测试 
+是不是要调整和改善,这些测试已经过得比较久了而且没有维护.然后还要审查自动化自测试的范围         
+你先帮我分析 我先看看 待会真正做的时候还是还要plan模式来执行
+
+tx-gateway 先不要动 然后其他方面进行扩展自动化测试,dex-sui/docs/indexer/test/index-test.md   
+这个文档也比较老,也需要维护.参看dex-ui覆盖dex全面的测试                                        
+环境使用dex-dev,usdc和suiBridge的智能合约你应该也知道.                                         
+测试最好用多一些用户来完成,私钥地址,不要用之前测试的地址.                                      
+最好再给我一个脚本让我运行后,即可进行全面的自动化测试.                                         
+你先分析,合适的时机启动plan模式,可以调用superpower来完善,这项任务我比较重视.    
+
